@@ -10,7 +10,7 @@ struct Material{
 };
 
 struct SphereType{
-	int cx, cy, cz;
+	float cx, cy, cz;
 	float r;
 	Material mtr;
 };
@@ -26,19 +26,33 @@ struct ImageDimension{
 };
 
 struct Point{
-	int x, y, z;
+	float x, y, z;
 };
 
 struct Vector{
-	int dx, dy, dz;
+	float dx, dy, dz;
 };
 
-struct ImageDescription{
+struct ViewingWindow{
+	Vector ul;
+	Vector ur;
+	Vector ll;
+	Vector lr;
+};
+
+struct ImageParameters{
 	Point eye;
 	Vector viewdir;
 	Vector up;
+	Vector u;
+	Vector v;
+	Vector w;
 	ImageDimension dim;
-	int hfov;
+	float hfov;
+	ViewingWindow vw;
 	ColorType bkgcolor;
 	std::vector<SphereType> spheres;
 };
+
+#define D 5
+#define PI 3.14159265
