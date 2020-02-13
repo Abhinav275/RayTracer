@@ -76,41 +76,38 @@ string getFilename(char* inputFile){
 
 // function to write image headers in output ASCII-Image
 // takes as input all the header parameters
-// void writeImageHeaders(string file, string imageType, string comments, pair<int, int> imageDimensions, int colorRange){
-// 	// open output file
-// 	ofstream myfile(file, std::ofstream::out);
+void writeImageHeaders(string file, string imageType, string comments, ImageParameters id, int colorRange){
+	// open output file
+	ofstream myfile(file, std::ofstream::out);
 	
-// 	// write headers to the output file
-// 	if(myfile.is_open()){
-// 		myfile<<imageType<<"\n";
-// 		myfile<<comments<<"\n";
-// 		myfile<<imageDimensions.first<<" "<<imageDimensions.second<<"\n";
-// 		myfile<<colorRange<<"\n";
-// 	}
+	// write headers to the output file
+	if(myfile.is_open()){
+		myfile<<imageType<<"\n";
+		myfile<<comments<<"\n";
+		myfile<<id.dim.width<<" "<<id.dim.height<<"\n";
+		myfile<<colorRange<<"\n";
+	}
 
-// 	// close output file
-// 	myfile.close();
-// 	return;
-// }
+	// close output file
+	myfile.close();
+	return;
+}
 
-// // function to write the RGB pixel data to output image
-// void writeImageData(string file, pair<int, int> imageDimensions){
-// 	// open output file
-// 	ofstream myfile(file, std::ofstream::out | std::ofstream::app);
+// function to write the RGB pixel data to output image
+void writeImageData(string file, ImageParameters id, vector<vector<ColorType>> image){
+	// open output file
+	ofstream myfile(file, std::ofstream::out | std::ofstream::app);
 	
-// 	// get RGB image pattern
-// 	vector<vector<vector<int>>> pattern = getImagePattern(imageDimensions);
-	
-// 	// traverse the pattern and write data to the output file
-// 	for(int i=0;i<imageDimensions.second;i++){
-// 		for(int j=0;j<imageDimensions.first;j++){
-// 			myfile<<pattern[i][j][0]<<" "<<pattern[i][j][1]<<" "<<pattern[i][j][2]<<"\n";
-// 		}
-// 	}
+	// traverse the pattern and write data to the output file
+	for(int i=0;i<id.dim.height;i++){
+		for(int j=0;j<id.dim.width;j++){
+			myfile<<(int)(255.0*image[i][j].R)<<" "<<(int)(255.0*image[i][j].G)<<" "<<(int)(255.0*image[i][j].B)<<"\n";
+		}
+	}
 
-// 	// close the image file
-// 	myfile.close();
-// }
+	// close the image file
+	myfile.close();
+}
 
 ImageParameters readInput(char* filename){
 
@@ -313,13 +310,18 @@ Vector multiplyScalar(Vector a, float b){
 	return result; 
 }
 
-Vector negate(Vector a){
+Vector negateVector(Vector a){
 	Vector result = {-a.dx, -a.dy ,-a.dz};
 	return result;
 }
 
 void printVector(Vector a){
 	cout<<a.dx<<","<<a.dy<<","<<a.dz<<","<<endl;
+	return;
+}
+
+void printRay(RayType a){
+	cout<<a.x<<","<<a.y<<","<<a.z<<","<<a.dx<<","<<a.dy<<","<<a.dz<<","<<endl;
 	return;
 }
 
@@ -355,6 +357,83 @@ void getImageViewingWindow(ImageParameters& id){
 	return;
 }
 
+RayType makeRay(Point p, Vector a){
+	Vector direction = negateVector(add(p, negateVector(a)));
+	direction = normalize(direction);
+
+	RayType result = {p.x, p.y, p.z, direction.dx, direction.dy, direction.dz};
+	return result;
+}
+
+vector<vector<RayType>> getRays(ImageParameters id){
+	int width = id.dim.width;
+	int height = id.dim.height;
+
+	vector<vector<RayType>> result;
+
+	Vector delta_ch = multiplyScalar( add(id.vw.ur, negateVector(id.vw.ul)) , 1.0/(2.0*(float)width));
+	Vector delta_cv = multiplyScalar( add(id.vw.ll, negateVector(id.vw.ul)) , 1.0/(2.0*(float)height));
+
+	Vector delta_center = add(id.vw.ul, add(delta_ch, delta_cv));
+
+	Vector delta_h = multiplyScalar( add(id.vw.ur, negateVector(id.vw.ul)) , 1.0/((float)width));
+	Vector delta_v = multiplyScalar( add(id.vw.ll, negateVector(id.vw.ul)) , 1.0/((float)height));
+
+	for(int i=0;i<height;i++){
+		result.push_back({});
+		for(int j=0;j<width;j++){
+			Vector temp = add(delta_center, add( multiplyScalar(delta_v, i), multiplyScalar(delta_h, j)));
+			RayType r = makeRay(id.eye, temp);
+			result[i].push_back(r);
+		}
+	}
+
+	return result;
+}
+
+float findSphereIntersectionDistance(RayType ray, SphereType sphere){
+	float A = 1.0;
+	float B = 2.0 * ( ray.dx * (ray.x - sphere.cx) +  ray.dy * (ray.y - sphere.cy) + ray.dz * (ray.z - sphere.cz));
+	float C = (ray.x - sphere.cx)*(ray.x - sphere.cx) + (ray.y - sphere.cy)*(ray.y - sphere.cy) + (ray.z - sphere.cz)*(ray.z - sphere.cz) - sphere.r*sphere.r;
+
+	float mod = B*B - 4.0*A*C;
+	if(mod<0) return FLT_MAX;
+	else if(mod==0) return -B/(2.0*A);
+	else {
+		float t1,t2;
+		t1 = (-B+sqrt(mod))/(2.0*A);
+		t2 = (-B-sqrt(mod))/(2.0*A);
+
+		if(mod > 0.0) cout<<t1<<" "<<t2<<endl;
+
+		if(t1>0.0 && t2>0.0) return min(t1,t2);
+		else if(t1>0.0) return t1;
+		else if(t2>0.0) return t2;
+		else return FLT_MAX;
+	}
+}
+
+ColorType shadeRay(ImageParameters id, int objectId){
+	return id.spheres[objectId].mtr.c;
+}
+
+ColorType traceRay(RayType ray, ImageParameters id){
+	int objectId = -1;
+	float minDistance = FLT_MAX;
+	
+	for(int i=0;i<id.spheres.size();i++){
+		float dist = findSphereIntersectionDistance(ray, id.spheres[i]);
+		if(dist == FLT_MAX) continue;
+		else if(minDistance > dist){
+			minDistance = dist;
+			objectId = i;
+			cout<<"Found Intersection"<<endl;
+		}
+	}
+	if(minDistance != FLT_MAX) return shadeRay(id,objectId);
+	else return id.bkgcolor;
+}
+
 // main function to draw the image
 int main(int argc, char** argv){
 
@@ -375,29 +454,30 @@ int main(int argc, char** argv){
 		vector<vector<ColorType>> image = initializeImage(id);
 		getImagePlaneVectors(id);
 		getImageViewingWindow(id);
+		vector<vector<RayType>> rays = getRays(id);
+
+		for(int i=0;i<id.dim.height;i++){
+			for(int j=0;j<id.dim.width;j++){
+				image[i][j] = traceRay(rays[i][j], id);
+			}
+		}
+
+		// get filename from 
+		string outputFile = getFilename(argv[1]);
+
+		cout<<"Image Filename: "<<outputFile<<endl;
+
+		// write ASCII-image headers to the output file
+		writeImageHeaders(outputFile, "P3", "#image with ray casting", id, 255);
+		
+		// write the image pixel data to the output file
+		writeImageData(outputFile, id, image);
+
 	} catch (int e){
 		if(e==-1) cout<< "Unable to process input file. Kindly check the input file format."<<endl;
 		return 0;
 	}
 
-
-	// // confirm that the image dimensions were read correctly
-	// if(imageDimensions.first <= 0 || imageDimensions.second <= 0){
-	// 	cout<< "Unable to process input file. Kindly check the input file format."<<endl;
-	// 	return 0;
-	// }
-
 	// cout<<"Image dimensions: "<<imageDimensions.first<<" "<<imageDimensions.second<<endl;
-
-	// // get filename from 
-	// string outputFile = getFilename(argv[1]);
-
-	// cout<<"Image Filename: "<<outputFile<<endl;
-
-	// // write ASCII-image headers to the output file
-	// writeImageHeaders(outputFile, "P3", "#image with dual gradient", imageDimensions, 255);
-	
-	// // write the image pixel data to the output file
-	// writeImageData(outputFile, imageDimensions);
 	return 0;
 }
