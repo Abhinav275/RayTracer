@@ -1,38 +1,49 @@
 #include <bits/stdc++.h>
+
+// Struct for RGB colors
 struct ColorType{
 	float R;
 	float G;
 	float B;
 };
 
+// Struct for Material
 struct Material{
 	ColorType c;
 };
 
+// Strucf for a sphere
 struct SphereType{
 	float cx, cy, cz;
 	float r;
 	Material mtr;
 };
 
+
+// Struct for a RayType
 struct RayType{
 	float x, y, z;
 	float dx, dy, dz;
 };
 
+// Struct for iamge dimensions
 struct ImageDimension{
 	int width;
 	int height;
 };
 
+// Struct for a point in cxz coordinate system
 struct Point{
 	float x, y, z;
 };
 
+
+// Struct for a vector
 struct Vector{
 	float dx, dy, dz;
 };
 
+// Struct for making a viewing window
 struct ViewingWindow{
 	Vector ul;
 	Vector ur;
@@ -40,6 +51,7 @@ struct ViewingWindow{
 	Vector lr;
 };
 
+// Struct to store all the image parameters
 struct ImageParameters{
 	Point eye;
 	Vector viewdir;
@@ -54,5 +66,10 @@ struct ImageParameters{
 	std::vector<SphereType> spheres;
 };
 
+// Constants
+
+// Distance of viewing window from the eye
 #define D 5
+
+// Value of Pie
 #define PI 3.14159265

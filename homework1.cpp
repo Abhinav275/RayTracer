@@ -23,6 +23,7 @@ bool checkNumber(string num){
 	return true;
 }
 
+// Utility function to check given string is a float
 bool checkFloat(string num){
 	int decimalCount=0;
 	if(num[0]=='-' || num[0]=='+') num=num.substr(1, num.size()-1);
@@ -34,38 +35,6 @@ bool checkFloat(string num){
 	}
 	return true;
 }
-
-// function to get read the input file and get image dimensions
-// pair<int, int> getDimensions(char* filename){
-
-// 	// open input file 
-// 	ifstream inputFile(filename);
-// 	pair<int, int> dimensions;
-// 	if(inputFile.is_open()){
-// 		string line;
-
-// 		// read first line from input file
-// 		getline(inputFile, line);
-
-// 		// get tokens from file separated by space
-// 		vector<string> tokens = getTokens(line, ' ');
-
-// 		// confirm the format of the input file
-// 		if(tokens.size()!=3 
-// 			|| tokens[0]!="imsize" 
-// 			|| !checkNumber(tokens[1]) 
-// 			|| !checkNumber(tokens[2])) return make_pair(-1,-1);
-		
-// 		// make a pair using width and height from the file
-// 		dimensions = make_pair(stoi(tokens[1]), stoi(tokens[2]));
-// 	}
-
-// 	//close the input file
-// 	inputFile.close();
-
-// 	// return image dimensions as a pair of integers
-// 	return dimensions;
-// }
 
 // function to get the output filename from the input filename
 string getFilename(char* inputFile){
@@ -93,7 +62,7 @@ void writeImageHeaders(string file, string imageType, string comments, ImagePara
 	return;
 }
 
-// function to write the RGB pixel data to output image
+// Function to write the RGB pixel data to output image
 void writeImageData(string file, ImageParameters id, vector<vector<ColorType>> image){
 	// open output file
 	ofstream myfile(file, std::ofstream::out | std::ofstream::app);
@@ -109,10 +78,13 @@ void writeImageData(string file, ImageParameters id, vector<vector<ColorType>> i
 	myfile.close();
 }
 
+// Function to read input from the given filename 
 ImageParameters readInput(char* filename){
 
 	// open input file 
 	ifstream inputFile(filename);
+
+	// a map to keep track of required read values
 	unordered_map<string, bool> headerMap = {
 		{"eye", false},
 		{"viewdir", false},
@@ -124,6 +96,7 @@ ImageParameters readInput(char* filename){
 		{"sphere", false}
 	};
 
+	// a map between the switch case and input keywords
 	unordered_map<string, int> headers = {
 		{"eye", 0},
 		{"viewdir", 1},
@@ -135,23 +108,29 @@ ImageParameters readInput(char* filename){
 		{"sphere", 7}
 	};
 
+	// an empty material to use for spheres
 	Material mtr;
 
 	ImageParameters id;
 	
+	// checking if input file is open
 	if(inputFile.is_open()){
 		string line;
 
-		// read first line from input file
+		// read lines from input file one by one
 		while(getline(inputFile, line)){
 
 			// get tokens from file separated by space
 			vector<string> tokens = getTokens(line, ' ');
 
+			// ignore is empty line
 			if(tokens.size()==0) continue;
 
+			// switch case on keyword
 			switch(headers[tokens[0]]){
 				case 4:{
+
+					// handling keyword imsize
 					if(tokens.size()!=3 || !checkNumber(tokens[1]) || !checkNumber(tokens[2])) throw -1;
 					int width = stoi(tokens[1]);
 					int height = stoi(tokens[2]);
@@ -164,6 +143,8 @@ ImageParameters readInput(char* filename){
 					break;
 				}
 				case 0:{
+
+					// handling keyword eye
 					if(tokens.size()!=4 || !checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3])) throw -1;
 					float x = stof(tokens[1]);
 					float y = stof(tokens[2]);
@@ -175,6 +156,8 @@ ImageParameters readInput(char* filename){
 					break;
 				}
 				case 1:{
+
+					// handling keyword viewdir
 					if(tokens.size()!=4 || !checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3])) throw -1;
 					float dx = stof(tokens[1]);
 					float dy = stof(tokens[2]);
@@ -186,6 +169,8 @@ ImageParameters readInput(char* filename){
 					break;
 				}
 				case 2:{
+
+					// handling keyword updir
 					if(tokens.size()!=4 || !checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3])) throw -1;
 					float dx = stof(tokens[1]);
 					float dy = stof(tokens[2]);
@@ -197,6 +182,8 @@ ImageParameters readInput(char* filename){
 					break;
 				}
 				case 3:{
+
+					// handling keyword hfov
 					if(tokens.size()!=2 || !checkFloat(tokens[1])) throw -1;
 					float angle = stof(tokens[1]);
 					id.hfov = angle;
@@ -204,6 +191,8 @@ ImageParameters readInput(char* filename){
 					break;
 				}
 				case 5:{
+
+					// hanlding keyword bkgcolor
 					if(tokens.size()!=4 || !checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3])) throw -1;
 					float r = stof(tokens[1]);
 					float g = stof(tokens[2]);
@@ -216,6 +205,8 @@ ImageParameters readInput(char* filename){
 					break;
 				}
 				case 6:{
+
+					// hangling keyword mtlcolor
 					if(tokens.size()!=4 || !checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3])) throw -1;
 					float r = stof(tokens[1]);
 					float g = stof(tokens[2]);
@@ -228,6 +219,8 @@ ImageParameters readInput(char* filename){
 					break;
 				}
 				case 7:{
+
+					// hanlding keyword sphere
 					if(tokens.size()!=5 || !checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3]) || !checkFloat(tokens[4])) throw -1;
 					float cx = stof(tokens[1]);
 					float cy = stof(tokens[2]);
@@ -242,21 +235,31 @@ ImageParameters readInput(char* filename){
 					break;
 				}
 				default:
+
+					// default case throwing error
 					throw -1;
 			}
 
 		};
-			cout<<"Successfully read the input file"<<endl;
+
+		// checking required keywords have been read
+		for(auto& i: headerMap){
+			if(i.second == false && (i.first != "mtlcolor" && i.first != "sphere")) throw -1;
+		}
+
+		cout<<"Successfully read the input file."<<endl;
 	}
 
+	else throw -1;
 	//close the input file
 	inputFile.close();
 
-	// return image dimensions as a pair of integers
+	// return image parameters
 	return id;
 
 }
 
+// Function to initialize the image
 vector<vector<ColorType>> initializeImage(ImageParameters& id){
 	int width = id.dim.width;
 	int height = id.dim.height;
@@ -265,18 +268,14 @@ vector<vector<ColorType>> initializeImage(ImageParameters& id){
 	return image;
 }
 
-// get cross products of 2 Vectors
-Vector crossProduct(Vector a, Vector b){
-	Vector result;
-	result.dz = a.dx*b.dy - a.dy*b.dx; 
-	result.dx= a.dy*b.dz - a.dz*b.dy; 
-	result.dy = a.dz*b.dx - a.dx*b.dz;
-	return result; 
+bool equalVector(Vector a, Vector b){
+	return ((a.dx == b.dx) && (a.dy == b.dy) && (a.dz == b.dz)); 
 }
 
-// get normalized unit Vector
+// Function to get normalized unit Vector
 Vector normalize(Vector a){
 	float magnitude = sqrt(a.dx*a.dx + a.dy*a.dy + a.dz*a.dz);
+	if (magnitude == 0.0) throw -2; 
 	Vector result;
 	result.dx = a.dx/magnitude;
 	result.dy = a.dy/magnitude;
@@ -284,6 +283,8 @@ Vector normalize(Vector a){
 	return result;
 }
 
+
+// Function to add two given Vectors
 Vector add(Vector a, Vector b){
 	Vector result;
 	result.dx = a.dx+b.dx;
@@ -292,6 +293,7 @@ Vector add(Vector a, Vector b){
 	return result;
 }
 
+// Function to add a point and a Vector
 Vector add(Point a, Vector b){
 	Vector result;
 	result.dx = a.x+b.dx;
@@ -300,102 +302,158 @@ Vector add(Point a, Vector b){
 	return result;
 }
 
+// Function to to multiply given Vector with D ie viewing distance
 Vector multiplyD(Vector a){
 	Vector result = {D*a.dx, D*a.dy ,D*a.dz};
 	return result;
 }
 
+// Function to multiply vector with scalar
 Vector multiplyScalar(Vector a, float b){
 	Vector result = {b*a.dx, b*a.dy ,b*a.dz};
 	return result; 
 }
 
+// Function to get negative of a given Vector
 Vector negateVector(Vector a){
 	Vector result = {-a.dx, -a.dy ,-a.dz};
 	return result;
 }
 
+// Function to get cross products of 2 Vectors
+Vector crossProduct(Vector a, Vector b){\
+	try{
+		if(equalVector(normalize(a), normalize(b)) || equalVector(normalize(a), negateVector(normalize(b)) )) throw -2;
+		Vector result;
+		result.dz = a.dx*b.dy - a.dy*b.dx; 
+		result.dx= a.dy*b.dz - a.dz*b.dy; 
+		result.dy = a.dz*b.dx - a.dx*b.dz;
+		return result;
+	} catch (int e) {
+		throw e;
+	}
+
+}
+
+// Utility function to print Vector
 void printVector(Vector a){
 	cout<<a.dx<<","<<a.dy<<","<<a.dz<<","<<endl;
 	return;
 }
 
+// Utility function to print a RayType
 void printRay(RayType a){
 	cout<<a.x<<","<<a.y<<","<<a.z<<","<<a.dx<<","<<a.dy<<","<<a.dz<<","<<endl;
 	return;
 }
 
+// Function to get image plane Vectors ie u, v and w 
 void getImagePlaneVectors(ImageParameters& id){
-	
-	id.w = {-id.viewdir.dx, -id.viewdir.dy, -id.viewdir.dz};
-	id.w = normalize(id.w);
 
-	id.u = crossProduct(id.viewdir, id.up);
-	id.u = normalize(id.u);
+	try {	
+		// taking negative of viewdir and normalizing it
+		id.w = {-id.viewdir.dx, -id.viewdir.dy, -id.viewdir.dz};
+		id.w = normalize(id.w);
 
-	id.v = crossProduct(id.u, id.viewdir);
-	id.v = normalize(id.v);
+		// taking cross product of viewdir and updir
+		id.u = crossProduct(id.viewdir, id.up);
+		id.u = normalize(id.u);
+
+		// taking cross product of u and viewdir
+		id.v = crossProduct(id.u, id.viewdir);
+		id.v = normalize(id.v);
+	} catch (int e){
+		throw e;
+	}
 	
 	return;
 }
 
+// Function to get the viewing window parameters
 void getImageViewingWindow(ImageParameters& id){
-	float width = 2*D*tan((id.hfov/2.0)*(PI/180.0));
-	float height = width / ((float)id.dim.width/(float)id.dim.height);
 
-	ViewingWindow vw;
+	try{
+		// calculate the width and height of the viewing window
+		float width = 2*D*tan((id.hfov/2.0)*(PI/180.0));
+		float height = width / ((float)id.dim.width/(float)id.dim.height);
 
-	Vector viewOrigin = add(id.eye, multiplyD(normalize(id.viewdir)) );
+		ViewingWindow vw;
 
-	vw.ul = add( viewOrigin , add( multiplyScalar(id.u, -width/2.0) , multiplyScalar(id.v, height/2.0) ) ); 
-	vw.ur = add( viewOrigin , add( multiplyScalar(id.u, width/2.0) , multiplyScalar(id.v, height/2.0) ) ); 
-	vw.ll = add( viewOrigin , add( multiplyScalar(id.u, -width/2.0) , multiplyScalar(id.v, -height/2.0) ) ); 
-	vw.lr = add( viewOrigin , add( multiplyScalar(id.u, width/2.0) , multiplyScalar(id.v, -height/2.0) ) ); 
+		Vector viewOrigin = add(id.eye, multiplyD(normalize(id.viewdir)) );
 
-	id.vw = vw;
+		// calculate corners of the viewing window
+		vw.ul = add( viewOrigin , add( multiplyScalar(id.u, -width/2.0) , multiplyScalar(id.v, height/2.0) ) ); 
+		vw.ur = add( viewOrigin , add( multiplyScalar(id.u, width/2.0) , multiplyScalar(id.v, height/2.0) ) ); 
+		vw.ll = add( viewOrigin , add( multiplyScalar(id.u, -width/2.0) , multiplyScalar(id.v, -height/2.0) ) ); 
+		vw.lr = add( viewOrigin , add( multiplyScalar(id.u, width/2.0) , multiplyScalar(id.v, -height/2.0) ) ); 
+
+		id.vw = vw;
+
+	} catch (int e){
+		throw e;
+	}
 
 	return;
 }
 
+// Utility function to make a ray given a Point and a Vector
 RayType makeRay(Point p, Vector a){
-	Vector direction = negateVector(add(p, negateVector(a)));
-	direction = normalize(direction);
+	try{
+		Vector direction = negateVector(add(p, negateVector(a)));
+		direction = normalize(direction);
 
-	RayType result = {p.x, p.y, p.z, direction.dx, direction.dy, direction.dz};
-	return result;
+		RayType result = {p.x, p.y, p.z, direction.dx, direction.dy, direction.dz};
+		return result;
+	} catch (int e){
+		throw e;
+	}
 }
 
+// Function to get all the rays passing through the viewing window
 vector<vector<RayType>> getRays(ImageParameters id){
 	int width = id.dim.width;
 	int height = id.dim.height;
 
 	vector<vector<RayType>> result;
 
+	// Calculate delta_ch and delta_cv
 	Vector delta_ch = multiplyScalar( add(id.vw.ur, negateVector(id.vw.ul)) , 1.0/(2.0*(float)width));
 	Vector delta_cv = multiplyScalar( add(id.vw.ll, negateVector(id.vw.ul)) , 1.0/(2.0*(float)height));
 
+	// Add them to upper left point of the viewing window
 	Vector delta_center = add(id.vw.ul, add(delta_ch, delta_cv));
 
+	// calculate delta_h and delta_v ie steps for the iterator
 	Vector delta_h = multiplyScalar( add(id.vw.ur, negateVector(id.vw.ul)) , 1.0/((float)width));
 	Vector delta_v = multiplyScalar( add(id.vw.ll, negateVector(id.vw.ul)) , 1.0/((float)height));
 
+	// Iterate through the viewing window and create rays
 	for(int i=0;i<height;i++){
 		result.push_back({});
 		for(int j=0;j<width;j++){
+
+			// temp = ul + (i)delta_v + (j)delta_h + delta_ch + delta_cv
 			Vector temp = add(delta_center, add( multiplyScalar(delta_v, i), multiplyScalar(delta_h, j)));
+
+			// make ray from eye to temp and keep it in result list
 			RayType r = makeRay(id.eye, temp);
 			result[i].push_back(r);
 		}
 	}
 
+	// return list of rays
 	return result;
 }
 
+// Function to check if a shpere and a ray interset
 float findSphereIntersectionDistance(RayType ray, SphereType sphere){
+	
+	// find A, B, C of the quadtratic equation
 	float A = 1.0;
 	float B = 2.0 * ( ray.dx * (ray.x - sphere.cx) +  ray.dy * (ray.y - sphere.cy) + ray.dz * (ray.z - sphere.cz));
 	float C = (ray.x - sphere.cx)*(ray.x - sphere.cx) + (ray.y - sphere.cy)*(ray.y - sphere.cy) + (ray.z - sphere.cz)*(ray.z - sphere.cz) - sphere.r*sphere.r;
 
+	// check if solution exists
 	float mod = B*B - 4.0*A*C;
 	if(mod<0) return FLT_MAX;
 	else if(mod==0) return -B/(2.0*A);
@@ -404,8 +462,7 @@ float findSphereIntersectionDistance(RayType ray, SphereType sphere){
 		t1 = (-B+sqrt(mod))/(2.0*A);
 		t2 = (-B-sqrt(mod))/(2.0*A);
 
-		if(mod > 0.0) cout<<t1<<" "<<t2<<endl;
-
+		// check that the distance is positive
 		if(t1>0.0 && t2>0.0) return min(t1,t2);
 		else if(t1>0.0) return t1;
 		else if(t2>0.0) return t2;
@@ -413,23 +470,31 @@ float findSphereIntersectionDistance(RayType ray, SphereType sphere){
 	}
 }
 
+// Function to return the color of the intersection point
 ColorType shadeRay(ImageParameters id, int objectId){
 	return id.spheres[objectId].mtr.c;
 }
 
+// Function to trace ray and find intersections with given image parameters
 ColorType traceRay(RayType ray, ImageParameters id){
 	int objectId = -1;
 	float minDistance = FLT_MAX;
 	
+	// iterate over all image objects
 	for(int i=0;i<id.spheres.size();i++){
+
+		// find if the object intersects
 		float dist = findSphereIntersectionDistance(ray, id.spheres[i]);
 		if(dist == FLT_MAX) continue;
+		
+		// check if the intersection point is closer than previous intersection point
 		else if(minDistance > dist){
 			minDistance = dist;
 			objectId = i;
-			cout<<"Found Intersection"<<endl;
 		}
 	}
+
+	// return the color if there is an intersection point else return background color
 	if(minDistance != FLT_MAX) return shadeRay(id,objectId);
 	else return id.bkgcolor;
 }
@@ -475,9 +540,9 @@ int main(int argc, char** argv){
 
 	} catch (int e){
 		if(e==-1) cout<< "Unable to process input file. Kindly check the input file format."<<endl;
+		else if(e==-2) cout<<"Viewdir and Updir vectors are parallel, kindly make them non parallel vectors."<<endl;
 		return 0;
 	}
 
-	// cout<<"Image dimensions: "<<imageDimensions.first<<" "<<imageDimensions.second<<endl;
 	return 0;
 }
