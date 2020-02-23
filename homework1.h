@@ -9,7 +9,9 @@ struct ColorType{
 
 // Struct for Material
 struct Material{
-	ColorType c;
+	ColorType materialColor, specColor;
+	float ka, kd, ks;
+	float n;
 };
 
 // Strucf for a sphere
@@ -51,6 +53,12 @@ struct ViewingWindow{
 	Vector lr;
 };
 
+struct LightSouce{
+	float x, y, z;
+	int w;
+	ColorType c;
+}
+
 // Struct to store all the image parameters
 struct ImageParameters{
 	Point eye;
@@ -64,6 +72,7 @@ struct ImageParameters{
 	ViewingWindow vw;
 	ColorType bkgcolor;
 	std::vector<SphereType> spheres;
+	std::vector<LightSouce> lights;
 };
 
 // Constants
@@ -73,3 +82,7 @@ struct ImageParameters{
 
 // Value of Pie
 #define PI 3.14159265
+
+#define JITTERDIST 0.5
+
+#define SHADOWTESTTIMES 50
