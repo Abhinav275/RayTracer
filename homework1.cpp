@@ -108,13 +108,15 @@ ImageParameters readInput(char* filename){
 		{"mtlcolor", 6},
 		{"sphere", 7},
 		{"light", 8},
-		{"attlight", 9}
+		{"attlight", 9},
+		{"depthcueing", 10}
 	};
 
 	// an empty material to use for spheres
 	Material mtr;
 
 	ImageParameters id;
+	id.depthFlag = false;
 	
 	// checking if input file is open
 	if(inputFile.is_open()){
@@ -272,7 +274,6 @@ ImageParameters readInput(char* filename){
 					id.lights.push_back(l);
 					break;
 				} case 9:{
-					cout<<"Came here"<<endl;
 					if(tokens.size()!=11 || 
 						!checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3]) ||
 						!checkFloat(tokens[4]) ||
@@ -289,6 +290,22 @@ ImageParameters readInput(char* filename){
 					ColorType lightIntensity = {(float)r, (float)g, (float)b};
 					LightSource l = {x,y,z,w,lightIntensity, 1, c1, c2 ,c3};
 					id.lights.push_back(l);
+					break;
+				} case 10:{
+					if(tokens.size()!=8 ||
+						!checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3]) ||
+						!checkFloat(tokens[4]) || !checkFloat(tokens[5]) || 
+						!checkFloat(tokens[6]) || !checkFloat(tokens[7])) throw -1;
+
+					float r = stof(tokens[1]), g = stof(tokens[2]), b = stof(tokens[3]);
+					float amax = stof(tokens[4]), amin = stof(tokens[5]);
+					float dmax = stof(tokens[6]), dmin = stof(tokens[7]);
+
+					if(r<0.0 || r>1.0 || g<0.0 || g>1.0 || b<0.0 || b>1.0) throw -1;
+
+					DepthCue depthCue = {r, g, b, amax, amin, dmax, dmin};
+					id.depthCue = depthCue;
+					id.depthFlag = true;
 					break;
 				}
 				default:
@@ -574,6 +591,14 @@ float getAttFactor(float c1, float c2, float c3, float distance){
 	return (float)1.0/(c1+ c2*distance + c3*distance*distance);
 }
 
+float getDepthAlpha(DepthCue depthCue, float distance){
+	if(distance <= depthCue.dmin) return depthCue.amax;
+	else if(distance >= depthCue.dmax) return depthCue.amin;
+	else{
+		return depthCue.amin + (depthCue.amax - depthCue.amin)*(depthCue.dmax - distance)/(depthCue.dmax - depthCue.dmin);
+	}
+}
+
 // Function to return the color of the intersection point
 ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection){
 
@@ -596,7 +621,6 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 
 		float shadowFlag=1.0;
 		
-
 		Vector lightSourceVector = {lightSource.x, lightSource.y, lightSource.z};
 		lightSourceVector = negateVector(lightSourceVector);
 
@@ -667,14 +691,17 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 		if(lightSource.attFlag == 1){
 			float attFactor = getAttFactor(lightSource.c1, lightSource.c2, lightSource.c3, getMagnitude( add(pointOfIntersection, lightSourceVector))); 
 			c = multiplyScalar(c, attFactor);
-			cout<<"Came here"<<attFactor<<" "<<c.R<<endl;
-
 		}
 
 		sigma = add(sigma, multiplyScalar(c, shadowFlag));
 	}
 
 	res = add(res, sigma);
+	if(id.depthFlag == true){
+		float distance = getMagnitude(V);
+		float depthCueFactor = getDepthAlpha(id.depthCue, distance);
+		res = add(multiplyScalar(res, depthCueFactor), multiplyScalar(id.depthCue.c, ((float)1.0-depthCueFactor)));
+	}
 	return res;
 }
 

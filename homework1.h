@@ -61,6 +61,12 @@ struct LightSource{
 	float c1, c2, c3;
 };
 
+struct DepthCue{
+	ColorType c;
+	float amax, amin;
+	float dmax, dmin;
+};
+
 // Struct to store all the image parameters
 struct ImageParameters{
 	Point eye;
@@ -73,6 +79,8 @@ struct ImageParameters{
 	float hfov;
 	ViewingWindow vw;
 	ColorType bkgcolor;
+	DepthCue depthCue;
+	bool depthFlag;
 	std::vector<SphereType> spheres;
 	std::vector<LightSource> lights;
 };
