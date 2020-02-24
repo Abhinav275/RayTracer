@@ -209,15 +209,31 @@ ImageParameters readInput(char* filename){
 				case 6:{
 
 					// hangling keyword mtlcolor
-					if(tokens.size()!=4 || !checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3])) throw -1;
+					if(tokens.size()!=11 || !checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3]) ||
+						!checkFloat(tokens[4]) || !checkFloat(tokens[5]) || !checkFloat(tokens[6]) ||
+						!checkFloat(tokens[7]) || !checkFloat(tokens[8]) || !checkFloat(tokens[9]) ||
+						!checkFloat(tokens[10])) throw -1;
 					float r = stof(tokens[1]);
 					float g = stof(tokens[2]);
 					float b = stof(tokens[3]);
 
+					float r1 = stof(tokens[4]);
+					float g1 = stof(tokens[5]);
+					float b1 = stof(tokens[6]);
+
+					float ka = stof(tokens[7]);
+					float kd = stof(tokens[8]);
+ 					float ks = stof(tokens[9]);
+
+ 					float n = stof(tokens[10]);
+
+
 					if(r<0.0 || r>1.0 || g<0.0 || g>1.0 || b<0.0 || b>1.0) throw -1;
+					if(r1<0.0 || r1>1.0 || g1<0.0 || g1>1.0 || b1<0.0 || b1>1.0) throw -1;
 					headerMap["mtlcolor"] = true;
 					ColorType mtlcolor = {(float)r, (float)g, (float)b};
-					mtr = {mtlcolor};
+					ColorType speccolor = {(float)r1, (float)g1, (float)b1};
+					mtr = {mtlcolor, speccolor, ka, kd, ks, n};
 					break;
 				}
 				case 7:{
@@ -238,7 +254,7 @@ ImageParameters readInput(char* filename){
 				}
 				case 8:{
 					if(tokens.size()!=8 || 
-						!checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3])
+						!checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3]) ||
 						!checkFloat(tokens[4]) ||
 						!checkFloat(tokens[5]) || !checkFloat(tokens[6]) || !checkFloat(tokens[7])) throw -1;
 					float x = stof(tokens[1]), y = stof(tokens[2]), z = stof(tokens[3]); 
@@ -250,7 +266,7 @@ ImageParameters readInput(char* filename){
 
 					ColorType lightIntensity = {(float)r, (float)g, (float)b};
 					LightSouce l = {x,y,z,w,lightIntensity};
-					id.lightSources.push_back(l);
+					id.lights.push_back(l);
 				}
 				default:
 
@@ -290,9 +306,14 @@ bool equalVector(Vector a, Vector b){
 	return ((a.dx == b.dx) && (a.dy == b.dy) && (a.dz == b.dz)); 
 }
 
+float getMagnitude(Vector a){
+	float magnitude = sqrt(a.dx*a.dx + a.dy*a.dy + a.dz*a.dz);
+	return magnitude;
+}
+
 // Function to get normalized unit Vector
 Vector normalize(Vector a){
-	float magnitude = sqrt(a.dx*a.dx + a.dy*a.dy + a.dz*a.dz);
+	float magnitude = getMagnitude(a);
 	if (magnitude == 0.0) throw -2; 
 	Vector result;
 	result.dx = a.dx/magnitude;
@@ -322,9 +343,9 @@ Vector add(Point a, Vector b){
 
 ColorType add(ColorType a, ColorType b){
 	ColorType result;
-	result.r = max(0.0, a.r+b.r);
-	result.g = max(0.0, a.g+b.g);
-	result.b = max(0.0, a.b+b.b);
+	result.R = max((float)0.0, a.R+b.R);
+	result.G = max((float)0.0, a.G+b.G);
+	result.B = max((float)0.0, a.B+b.B);
 	return result;
 }
 
@@ -341,7 +362,7 @@ Vector multiplyScalar(Vector a, float b){
 }
 
 ColorType multiplyScalar(ColorType c, float s){
-	return {c.r*s, c.g*s, c.b*s};
+	return {c.R*s, c.G*s, c.B*s};
 }
 
 // Function to get negative of a given Vector
@@ -365,13 +386,13 @@ Vector crossProduct(Vector a, Vector b){\
 
 }
 
-Vector dotProduct(Vector a, Vector b){
+float dotProduct(Vector a, Vector b){
 	float result = a.dx*b.dx + a.dy*b.dy + a.dz*b.dz;
 	return result;
 }
 
 ColorType elementMultiply(ColorType a, ColorType b){
-	ColorType result = {a.r*b.r, a.g*b.g, a.b*b.b};
+	ColorType result = {a.R*b.R, a.G*b.G, a.B*b.B};
 	return result;
 }
 
@@ -449,9 +470,14 @@ RayType makeRay(Point p, Vector a){
 	}
 }
 
+RayType makeRay(Vector p, Vector a){
+	Point pt = {p.dx, p.dy, p.dz};
+	return makeRay(pt, a);
+}
+
 // get intersection point
 Vector getRayPoint(RayType ray, float t){
-	return {ray.x+t*ray.dx, ray.yt*ray.dy, ray.z+t*ray.dz};
+	return {ray.x+t*ray.dx, ray.y+t*ray.dy, ray.z+t*ray.dz};
 }
 
 // Function to get all the rays passing through the viewing window
@@ -498,7 +524,7 @@ float findSphereIntersectionDistance(RayType ray, SphereType sphere){
 	float B = 2.0 * ( ray.dx * (ray.x - sphere.cx) +  ray.dy * (ray.y - sphere.cy) + ray.dz * (ray.z - sphere.cz));
 	float C = (ray.x - sphere.cx)*(ray.x - sphere.cx) + (ray.y - sphere.cy)*(ray.y - sphere.cy) + (ray.z - sphere.cz)*(ray.z - sphere.cz) - sphere.r*sphere.r;
 
-	// check if solution exists
+	// cBeck if solution exists
 	float mod = B*B - 4.0*A*C;
 	if(mod<0) return FLT_MAX;
 	else if(mod==0) return -B/(2.0*A);
@@ -521,17 +547,17 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 	// throw shadow rays from the intersection point
 	SphereType object = id.spheres[objectId];
 
-	ColorType oA = multiplyScalar(object.mtr.materialColor materialColor, object.mtr.ka);
+	ColorType oA = multiplyScalar(object.mtr.materialColor, object.mtr.ka);
 	ColorType oD = {0.0, 0.0, 0.0}, oS = {0.0, 0.0, 0.0}, sigma={0.0, 0.0, 0.0};
 
-	Vector normal = makeRay({object.cx, object.cy, object.cz}, pointOfIntersection);
+	Vector normal = add(negateVector({object.cx, object.cy, object.cz}), pointOfIntersection);
 	normal = normalize(normal);
 
 	Vector eyePosition = {id.eye.x, id.eye.y, id.eye.z};
 	Vector V = add(pointOfIntersection, negateVector(eyePosition));
 
 	ColorType res = oA; 
-	for(auto& lightSource: id.lightSources){
+	for(auto& lightSource: id.lights){
 
 		int shadowObjectId = -1;
 
@@ -539,9 +565,13 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 		
 		float minDistance = FLT_MAX;
 
+		Vector lightSourceVector = {lightSource.x, lightSource.y, lightSource.z};
+		lightSourceVector = negateVector(lightSourceVector);
+
+
 		for(int x = 0; x < SHADOWTESTTIMES; x++){
 
-			RayType shadowRay = makeRay(pointOfIntersection, {l.x, l.y, l.z});
+			RayType shadowRay = makeRay(pointOfIntersection, {lightSource.x, lightSource.y, lightSource.z});
 
 			for(int i=0;i<id.spheres.size();i++){
 				
@@ -558,21 +588,20 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 
 			if(lightSource.w == 1 && minDistance!=FLT_MAX) shadowFlag += 0.0;
 			else if(lightSource.w==0 && minDistance!=FLT_MAX){
-				if(minDistance < normalize(add(pointOfIntersection, negateVector({lightSource.x, lightSource.y, lightSource.z})))) shadowFlag += 0.0;
+				if(minDistance < getMagnitude( add(pointOfIntersection, lightSourceVector))) shadowFlag += 0.0;
 				else shadowFlag += 1.0;
 			}
 		}
 
-		if(l.w == 1 && showdowFlag<1.0) shadowFlag = 0.0;
+		if(lightSource.w == 1 && shadowFlag<1.0) shadowFlag = 0.0;
 		else{
 			shadowFlag = shadowFlag/(float)(SHADOWTESTTIMES);
 		}
 
 		Vector L, H;
-		Vector lightSourceVector = {l.x, l.y, l.z};
 		
 		if(lightSource.w == 1.0){
-			L = add(pointOfIntersection, negateVector(lightSourceVector));
+			L = add(pointOfIntersection, lightSourceVector);
 		} else L = negateVector(lightSourceVector);
 
 		L = normalize(L);
@@ -580,8 +609,8 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 		H = normalize(H);
 
 
-		float nDotL = max(0.0, dotProduct(normal, L));
-		float nDotH = max(0.0, dotProduct(normal, H));
+		float nDotL = max((float)0.0, dotProduct(normal, L));
+		float nDotH = max((float)0.0, dotProduct(normal, H));
 		nDotH = pow(nDotH, object.mtr.n);
 
 		oD = multiplyScalar(object.mtr.materialColor, object.mtr.kd);
@@ -590,7 +619,7 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 		oS = multiplyScalar(object.mtr.specColor, object.mtr.ks); 
 		oS = multiplyScalar(oS, nDotH);
 
-		sigma = add(sigma, multiplyScalar(elementMultiply(lightSource.c, add(oD, oS)), shadowFlag);
+		sigma = add(sigma, multiplyScalar(elementMultiply(lightSource.c, add(oD, oS)), shadowFlag));
 	}
 
 	res = add(res, sigma);
