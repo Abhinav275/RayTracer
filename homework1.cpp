@@ -107,7 +107,8 @@ ImageParameters readInput(char* filename){
 		{"bkgcolor", 5},
 		{"mtlcolor", 6},
 		{"sphere", 7},
-		{"light", 8}
+		{"light", 8},
+		{"attlight", 9}
 	};
 
 	// an empty material to use for spheres
@@ -267,7 +268,26 @@ ImageParameters readInput(char* filename){
 					headerMap["light"] = true;
 
 					ColorType lightIntensity = {(float)r, (float)g, (float)b};
-					LightSouce l = {x,y,z,w,lightIntensity};
+					LightSource l = {x,y,z,w,lightIntensity, 0, 0.0, 0.0, 0.0};
+					id.lights.push_back(l);
+					break;
+				} case 9:{
+					cout<<"Came here"<<endl;
+					if(tokens.size()!=11 || 
+						!checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3]) ||
+						!checkFloat(tokens[4]) ||
+						!checkFloat(tokens[5]) || !checkFloat(tokens[6]) || !checkFloat(tokens[7]) ||
+						!checkFloat(tokens[8]) || !checkFloat(tokens[9]) || !checkFloat(tokens[10])) throw -1;
+					float x = stof(tokens[1]), y = stof(tokens[2]), z = stof(tokens[3]); 
+					float r = stof(tokens[5]), g = stof(tokens[6]), b = stof(tokens[7]);
+					float w = stof(tokens[4]);
+					float c1 = stof(tokens[8]), c2 = stof(tokens[9]), c3 = stof(tokens[10]);
+
+					if(r<0.0 || r>1.0 || g<0.0 || g>1.0 || b<0.0 || b>1.0 || (w!=1.0)) throw -1;
+					headerMap["light"] = true;
+
+					ColorType lightIntensity = {(float)r, (float)g, (float)b};
+					LightSource l = {x,y,z,w,lightIntensity, 1, c1, c2 ,c3};
 					id.lights.push_back(l);
 					break;
 				}
@@ -550,6 +570,10 @@ float findSphereIntersectionDistance(RayType ray, SphereType sphere){
 	}
 }
 
+float getAttFactor(float c1, float c2, float c3, float distance){
+	return (float)1.0/(c1+ c2*distance + c3*distance*distance);
+}
+
 // Function to return the color of the intersection point
 ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection){
 
@@ -638,7 +662,16 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 		oS = multiplyScalar(object.mtr.specColor, object.mtr.ks); 
 		oS = multiplyScalar(oS, nDotH);
 
-		sigma = add(sigma, multiplyScalar(elementMultiply(lightSource.c, add(oD, oS)), shadowFlag));
+		ColorType c = elementMultiply(lightSource.c, add(oD, oS));
+
+		if(lightSource.attFlag == 1){
+			float attFactor = getAttFactor(lightSource.c1, lightSource.c2, lightSource.c3, getMagnitude( add(pointOfIntersection, lightSourceVector))); 
+			c = multiplyScalar(c, attFactor);
+			cout<<"Came here"<<attFactor<<" "<<c.R<<endl;
+
+		}
+
+		sigma = add(sigma, multiplyScalar(c, shadowFlag));
 	}
 
 	res = add(res, sigma);

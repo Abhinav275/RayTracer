@@ -53,10 +53,12 @@ struct ViewingWindow{
 	Vector lr;
 };
 
-struct LightSouce{
+struct LightSource{
 	float x, y, z;
 	float w;
 	ColorType c;
+	int attFlag;
+	float c1, c2, c3;
 };
 
 // Struct to store all the image parameters
@@ -72,7 +74,7 @@ struct ImageParameters{
 	ViewingWindow vw;
 	ColorType bkgcolor;
 	std::vector<SphereType> spheres;
-	std::vector<LightSouce> lights;
+	std::vector<LightSource> lights;
 };
 
 // Constants
