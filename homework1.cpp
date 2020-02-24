@@ -522,7 +522,7 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 	SphereType object = id.spheres[objectId];
 
 	ColorType oA = multiplyScalar(object.mtr.materialColor materialColor, object.mtr.ka);
-	ColorType oD = {0.0, 0.0, 0.0}, oS = {0.0, 0.0, 0.0};
+	ColorType oD = {0.0, 0.0, 0.0}, oS = {0.0, 0.0, 0.0}, sigma={0.0, 0.0, 0.0};
 
 	Vector normal = makeRay({object.cx, object.cy, object.cz}, pointOfIntersection);
 	normal = normalize(normal);
@@ -532,6 +532,41 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 
 	ColorType res = oA; 
 	for(auto& lightSource: id.lightSources){
+
+		int shadowObjectId = -1;
+
+		float shadowFlag=1.0;
+		
+		float minDistance = FLT_MAX;
+
+		for(int x = 0; x < SHADOWTESTTIMES; x++){
+
+			RayType shadowRay = makeRay(pointOfIntersection, {l.x, l.y, l.z});
+
+			for(int i=0;i<id.spheres.size();i++){
+				
+				if(i == shadowObjectId) continue;
+
+				float dist = findSphereIntersectionDistance(shadowRay, id.spheres[i]);
+				if(dist == FLT_MAX) continue;
+
+				else if(minDistance > dist){
+					minDistance = dist;
+					objectId = i;
+				}
+			}
+
+			if(lightSource.w == 1 && minDistance!=FLT_MAX) shadowFlag += 0.0;
+			else if(lightSource.w==0 && minDistance!=FLT_MAX){
+				if(minDistance < normalize(add(pointOfIntersection, negateVector({lightSource.x, lightSource.y, lightSource.z})))) shadowFlag += 0.0;
+				else shadowFlag += 1.0;
+			}
+		}
+
+		if(l.w == 1 && showdowFlag<1.0) shadowFlag = 0.0;
+		else{
+			shadowFlag = shadowFlag/(float)(SHADOWTESTTIMES);
+		}
 
 		Vector L, H;
 		Vector lightSourceVector = {l.x, l.y, l.z};
@@ -555,46 +590,11 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 		oS = multiplyScalar(object.mtr.specColor, object.mtr.ks); 
 		oS = multiplyScalar(oS, nDotH);
 
-		res = add(res, elementMultiply(lightSource.c, add(oD, oS)));
-
-		int objectId = -1;
-
-		float showdowFlag=1.0;
-		
-		float minDistance = FLT_MAX;
-
-		for(int x = 0; x < SHADOWTESTTIMES; x++){
-
-			RayType shadowRay = makeRay(pointOfIntersection, {l.x, l.y, l.z});
-
-			for(int i=0;i<id.spheres.size();i++){
-				
-				if(i == objectId) continue;
-
-				float dist = findSphereIntersectionDistance(shadowRay, id.spheres[i]);
-				if(dist == FLT_MAX) continue;
-
-				else if(minDistance > dist){
-					minDistance = dist;
-					objectId = i;
-				}
-			}
-
-			if(l.w == 1 && minDistance!=FLT_MAX) shadowFlag += 0.0;
-			else if(l.w==0 && minDistance!=FLT_MAX){
-				if(minDistance < normalize(add(pointOfIntersection, negateVector({l.x, l.y, l.z})))) shadowFlag += 0.0;
-				else shadowFlag += 1.0;
-			} 
-		}
-
-		if(l.w == 1 && showdowFlag<1.0) shadowFlag = 0.0;
-		else{
-			shadowFlag = shadowFlag/(float)(SHADOWTESTTIMES);
-		}
-
+		sigma = add(sigma, multiplyScalar(elementMultiply(lightSource.c, add(oD, oS)), shadowFlag);
 	}
 
-	return id.spheres[objectId].mtr.c;
+	res = add(res, sigma);
+	return res;
 }
 
 // Function to trace ray and find intersections with given image parameters
