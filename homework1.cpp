@@ -253,6 +253,8 @@ ImageParameters readInput(char* filename){
 					break;
 				}
 				case 8:{
+ 					
+
 					if(tokens.size()!=8 || 
 						!checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3]) ||
 						!checkFloat(tokens[4]) ||
@@ -267,6 +269,7 @@ ImageParameters readInput(char* filename){
 					ColorType lightIntensity = {(float)r, (float)g, (float)b};
 					LightSouce l = {x,y,z,w,lightIntensity};
 					id.lights.push_back(l);
+					break;
 				}
 				default:
 
@@ -475,6 +478,12 @@ RayType makeRay(Vector p, Vector a){
 	return makeRay(pt, a);
 }
 
+RayType makeDirRay(Vector p, Vector direction){
+	direction = normalize(direction);
+	RayType result = {p.dx, p.dy, p.dz, direction.dx, direction.dy, direction.dz};
+	return result;
+}
+
 // get intersection point
 Vector getRayPoint(RayType ray, float t){
 	return {ray.x+t*ray.dx, ray.y+t*ray.dy, ray.z+t*ray.dz};
@@ -554,7 +563,7 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 	normal = normalize(normal);
 
 	Vector eyePosition = {id.eye.x, id.eye.y, id.eye.z};
-	Vector V = add(pointOfIntersection, negateVector(eyePosition));
+	Vector V = add(eyePosition, negateVector(pointOfIntersection));
 
 	ColorType res = oA; 
 	for(auto& lightSource: id.lights){
@@ -563,7 +572,6 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 
 		float shadowFlag=1.0;
 		
-		float minDistance = FLT_MAX;
 
 		Vector lightSourceVector = {lightSource.x, lightSource.y, lightSource.z};
 		lightSourceVector = negateVector(lightSourceVector);
@@ -571,8 +579,18 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 
 		for(int x = 0; x < SHADOWTESTTIMES; x++){
 
-			RayType shadowRay = makeRay(pointOfIntersection, {lightSource.x, lightSource.y, lightSource.z});
+			float jitter_x = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+			float jitter_y = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+			float jitter_z = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
 
+			jitter_x = jitter_x*0.5;
+			jitter_y = jitter_y*0.5;
+			jitter_z = jitter_z*0.5;
+
+			RayType shadowRay = makeRay(pointOfIntersection, {lightSource.x+jitter_x, lightSource.y+jitter_y, lightSource.z+jitter_z});
+			if(lightSource.w == 0.0) shadowRay = makeDirRay(pointOfIntersection, lightSourceVector);
+
+			float minDistance = FLT_MAX;
 			for(int i=0;i<id.spheres.size();i++){
 				
 				if(i == shadowObjectId) continue;
@@ -580,20 +598,21 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 				float dist = findSphereIntersectionDistance(shadowRay, id.spheres[i]);
 				if(dist == FLT_MAX) continue;
 
-				else if(minDistance > dist){
+				else if(minDistance > dist && dist > EPI){
 					minDistance = dist;
 					objectId = i;
 				}
 			}
 
-			if(lightSource.w == 1 && minDistance!=FLT_MAX) shadowFlag += 0.0;
-			else if(lightSource.w==0 && minDistance!=FLT_MAX){
+			if(lightSource.w == 0.0 && minDistance!=FLT_MAX) shadowFlag += 0.0;
+			else if(lightSource.w==1.0 && minDistance!=FLT_MAX){
 				if(minDistance < getMagnitude( add(pointOfIntersection, lightSourceVector))) shadowFlag += 0.0;
 				else shadowFlag += 1.0;
 			}
+			else if(minDistance==FLT_MAX) shadowFlag += 1.0;
 		}
 
-		if(lightSource.w == 1 && shadowFlag<1.0) shadowFlag = 0.0;
+		if(lightSource.w == 0.0 && shadowFlag<1.0) shadowFlag = 0.0;
 		else{
 			shadowFlag = shadowFlag/(float)(SHADOWTESTTIMES);
 		}
@@ -601,8 +620,8 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 		Vector L, H;
 		
 		if(lightSource.w == 1.0){
-			L = add(pointOfIntersection, lightSourceVector);
-		} else L = negateVector(lightSourceVector);
+			L = add(negateVector(pointOfIntersection), negateVector(lightSourceVector));
+		} else L = lightSourceVector;
 
 		L = normalize(L);
 		H = add(L,V);

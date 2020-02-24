@@ -55,9 +55,9 @@ struct ViewingWindow{
 
 struct LightSouce{
 	float x, y, z;
-	int w;
+	float w;
 	ColorType c;
-}
+};
 
 // Struct to store all the image parameters
 struct ImageParameters{
@@ -85,4 +85,6 @@ struct ImageParameters{
 
 #define JITTERDIST 0.5
 
-#define SHADOWTESTTIMES 50
+#define SHADOWTESTTIMES 150
+
+#define EPI 0.05
