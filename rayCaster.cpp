@@ -257,7 +257,7 @@ ImageParameters readInput(char* filename){
 				}
 				case 8:{
  					
-
+					// parse light
 					if(tokens.size()!=8 || 
 						!checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3]) ||
 						!checkFloat(tokens[4]) ||
@@ -274,6 +274,8 @@ ImageParameters readInput(char* filename){
 					id.lights.push_back(l);
 					break;
 				} case 9:{
+
+					// parse attenuate light
 					if(tokens.size()!=11 || 
 						!checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3]) ||
 						!checkFloat(tokens[4]) ||
@@ -292,6 +294,8 @@ ImageParameters readInput(char* filename){
 					id.lights.push_back(l);
 					break;
 				} case 10:{
+
+					// input for depth cue
 					if(tokens.size()!=8 ||
 						!checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3]) ||
 						!checkFloat(tokens[4]) || !checkFloat(tokens[5]) || 
@@ -426,11 +430,13 @@ Vector crossProduct(Vector a, Vector b){\
 
 }
 
+// dot product of two vectors
 float dotProduct(Vector a, Vector b){
 	float result = a.dx*b.dx + a.dy*b.dy + a.dz*b.dz;
 	return result;
 }
 
+// add colors elementwise
 ColorType elementMultiply(ColorType a, ColorType b){
 	ColorType result = {a.R*b.R, a.G*b.G, a.B*b.B};
 	return result;
@@ -515,6 +521,7 @@ RayType makeRay(Vector p, Vector a){
 	return makeRay(pt, a);
 }
 
+// function to make ray if direction is given
 RayType makeDirRay(Vector p, Vector direction){
 	direction = normalize(direction);
 	RayType result = {p.dx, p.dy, p.dz, direction.dx, direction.dy, direction.dz};
@@ -587,10 +594,12 @@ float findSphereIntersectionDistance(RayType ray, SphereType sphere){
 	}
 }
 
+// function to get the attenuation factor
 float getAttFactor(float c1, float c2, float c3, float distance){
 	return (float)1.0/(c1+ c2*distance + c3*distance*distance);
 }
 
+// function to get depth cue factor
 float getDepthAlpha(DepthCue depthCue, float distance){
 	if(distance <= depthCue.dmin) return depthCue.amax;
 	else if(distance >= depthCue.dmax) return depthCue.amin;
@@ -605,26 +614,35 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 	// throw shadow rays from the intersection point
 	SphereType object = id.spheres[objectId];
 
+	// initialize color variables
 	ColorType oA = multiplyScalar(object.mtr.materialColor, object.mtr.ka);
 	ColorType oD = {0.0, 0.0, 0.0}, oS = {0.0, 0.0, 0.0}, sigma={0.0, 0.0, 0.0};
 
+	// ger normal vector from the point of intersection
 	Vector normal = add(negateVector({object.cx, object.cy, object.cz}), pointOfIntersection);
 	normal = normalize(normal);
 
+	// get eye position vector
 	Vector eyePosition = {id.eye.x, id.eye.y, id.eye.z};
 	Vector V = add(eyePosition, negateVector(pointOfIntersection));
 
+
 	ColorType res = oA; 
+	
+	// traversing all the light sources
 	for(auto& lightSource: id.lights){
 
 		float shadowFlag=0.0;
 		
+		// getting the Light source vector
 		Vector lightSourceVector = {lightSource.x, lightSource.y, lightSource.z};
 		lightSourceVector = negateVector(lightSourceVector);
 
 
+		// forming multiple shadow rays for making soft shadows
 		for(int x = 0; x < SHADOWTESTTIMES; x++){
 
+			// find jitter and add it to ray input
 			float jitter_x = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
 			float jitter_y = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
 			float jitter_z = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
@@ -633,9 +651,11 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 			jitter_y = jitter_y*0.5;
 			jitter_z = jitter_z*0.5;
 
+			// make shadow rays
 			RayType shadowRay = makeRay(pointOfIntersection, {lightSource.x+jitter_x, lightSource.y+jitter_y, lightSource.z+jitter_z});
 			if(lightSource.w == 0.0) shadowRay = makeDirRay(pointOfIntersection, lightSourceVector);
 
+			// find intersection of shadow rays with sphere
 			float minDistance = FLT_MAX;
 			for(int i=0;i<id.spheres.size();i++){
 				
@@ -649,6 +669,7 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 				}
 			}
 
+			//  calculate shadow flag
 			if(lightSource.w == 0.0 && minDistance!=FLT_MAX) shadowFlag += 0.0;
 			else if(lightSource.w==1.0 && minDistance!=FLT_MAX){
 				if(minDistance < getMagnitude( add(pointOfIntersection, lightSourceVector))) shadowFlag += 0.0;
@@ -657,17 +678,21 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 			else if(minDistance==FLT_MAX) shadowFlag += 1.0;
 		}
 
+		// normalize shadow flag
 		shadowFlag = shadowFlag/(float)(SHADOWTESTTIMES);
 
 		if(lightSource.w == 0.0 && shadowFlag<1.0) shadowFlag = 0.0;
 
 		Vector L, H;
 		
+		// N.L dot product for diff factor
 		if(lightSource.w == 1.0){
 			L = add(negateVector(pointOfIntersection), negateVector(lightSourceVector));
 		} else L = lightSourceVector;
 
 		L = normalize(L);
+
+		// find H and N.H for spectral factor
 		H = add(L,normalize(V));
 		H = normalize(H);
 
@@ -677,29 +702,39 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 		nDotH = pow(nDotH, object.mtr.n);
 		nDotH = max((float)0.0, nDotH);
 
-
+		// mulitply colors with constants
 		oD = multiplyScalar(object.mtr.materialColor, object.mtr.kd);
 		oD = multiplyScalar(oD, nDotL);
 
 		oS = multiplyScalar(object.mtr.specColor, object.mtr.ks); 
 		oS = multiplyScalar(oS, nDotH);
 
+		// add the colors element wise
 		ColorType c = elementMultiply(lightSource.c, add(oD, oS));
 
+		// attenuate if required
 		if(lightSource.attFlag == 1){
 			float attFactor = getAttFactor(lightSource.c1, lightSource.c2, lightSource.c3, getMagnitude( add(pointOfIntersection, lightSourceVector))); 
 			c = multiplyScalar(c, attFactor);
 		}
-		// cout<<"came here"<<endl;
+		
+		// multiple with shadow flag and add
 		sigma = add(sigma, multiplyScalar(c, shadowFlag));
 	}
 
+	// add the sigma to ambia light
 	res = add(res, sigma);
+
+	// apply depth cueing
 	if(id.depthFlag == true){
+
+		// get distance and get getDepthAlpha
 		float distance = getMagnitude(V);
 		float depthCueFactor = getDepthAlpha(id.depthCue, distance);
 		res = add(multiplyScalar(res, depthCueFactor), multiplyScalar(id.depthCue.c, ((float)1.0-depthCueFactor)));
 	}
+
+	// clamp the colors
 	res.R = min((float)1.0, res.R);
 	res.G = min((float)1.0, res.G);
 	res.B = min((float)1.0, res.B);
