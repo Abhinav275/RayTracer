@@ -1,4 +1,4 @@
-#include "homework1.h"
+#include "rayCaster.h"
 using namespace std;
 
 // function to get tokens from the given string and delimiter
@@ -383,9 +383,9 @@ Vector add(Point a, Vector b){
 
 ColorType add(ColorType a, ColorType b){
 	ColorType result;
-	result.R = max((float)0.0, a.R+b.R);
-	result.G = max((float)0.0, a.G+b.G);
-	result.B = max((float)0.0, a.B+b.B);
+	result.R = a.R+b.R;
+	result.G = a.G+b.G;
+	result.B = a.B+b.B;
 	return result;
 }
 
@@ -617,9 +617,7 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 	ColorType res = oA; 
 	for(auto& lightSource: id.lights){
 
-		int shadowObjectId = -1;
-
-		float shadowFlag=1.0;
+		float shadowFlag=0.0;
 		
 		Vector lightSourceVector = {lightSource.x, lightSource.y, lightSource.z};
 		lightSourceVector = negateVector(lightSourceVector);
@@ -641,14 +639,13 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 			float minDistance = FLT_MAX;
 			for(int i=0;i<id.spheres.size();i++){
 				
-				if(i == shadowObjectId) continue;
+				if(i == objectId) continue;
 
 				float dist = findSphereIntersectionDistance(shadowRay, id.spheres[i]);
 				if(dist == FLT_MAX) continue;
 
 				else if(minDistance > dist && dist > EPI){
 					minDistance = dist;
-					objectId = i;
 				}
 			}
 
@@ -660,10 +657,9 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 			else if(minDistance==FLT_MAX) shadowFlag += 1.0;
 		}
 
+		shadowFlag = shadowFlag/(float)(SHADOWTESTTIMES);
+
 		if(lightSource.w == 0.0 && shadowFlag<1.0) shadowFlag = 0.0;
-		else{
-			shadowFlag = shadowFlag/(float)(SHADOWTESTTIMES);
-		}
 
 		Vector L, H;
 		
@@ -672,13 +668,15 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 		} else L = lightSourceVector;
 
 		L = normalize(L);
-		H = add(L,V);
+		H = add(L,normalize(V));
 		H = normalize(H);
 
 
 		float nDotL = max((float)0.0, dotProduct(normal, L));
-		float nDotH = max((float)0.0, dotProduct(normal, H));
+		float nDotH = dotProduct(normal, H);
 		nDotH = pow(nDotH, object.mtr.n);
+		nDotH = max((float)0.0, nDotH);
+
 
 		oD = multiplyScalar(object.mtr.materialColor, object.mtr.kd);
 		oD = multiplyScalar(oD, nDotL);
@@ -692,7 +690,7 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 			float attFactor = getAttFactor(lightSource.c1, lightSource.c2, lightSource.c3, getMagnitude( add(pointOfIntersection, lightSourceVector))); 
 			c = multiplyScalar(c, attFactor);
 		}
-
+		// cout<<"came here"<<endl;
 		sigma = add(sigma, multiplyScalar(c, shadowFlag));
 	}
 
@@ -702,6 +700,9 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 		float depthCueFactor = getDepthAlpha(id.depthCue, distance);
 		res = add(multiplyScalar(res, depthCueFactor), multiplyScalar(id.depthCue.c, ((float)1.0-depthCueFactor)));
 	}
+	res.R = min((float)1.0, res.R);
+	res.G = min((float)1.0, res.G);
+	res.B = min((float)1.0, res.B);
 	return res;
 }
 

@@ -95,6 +95,6 @@ struct ImageParameters{
 
 #define JITTERDIST 0.5
 
-#define SHADOWTESTTIMES 150
+#define SHADOWTESTTIMES 300
 
-#define EPI 0.05
+#define EPI 0.001

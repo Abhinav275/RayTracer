@@ -1,6 +1,6 @@
-homework1: homework1.cpp
-	g++ -o homework1 homework1.cpp
+rayCaster: rayCaster.cpp
+	g++ -o rayCaster rayCaster.cpp
 
 clean:
-	rm -f homework1
+	rm -f rayCaster
 	rm -f a.out
