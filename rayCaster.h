@@ -14,11 +14,19 @@ struct Material{
 	float n;
 };
 
+struct Texture{
+	int width;
+	int height;
+	std::vector<std::vector<ColorType>> textureList;
+};
+
 // Strucf for a sphere
 struct SphereType{
 	float cx, cy, cz;
 	float r;
 	Material mtr;
+	Texture tex;
+	bool textureFlag;
 };
 
 
@@ -67,6 +75,18 @@ struct DepthCue{
 	float dmax, dmin;
 };
 
+struct Triangle{
+	Point v1, v2, v3;
+	Point vt1, vt2, vt3;
+	Vector vn1, vn2, vn3;
+
+	bool normalFlag;
+	bool textureFlag;
+
+	Material mtr;
+	Texture tex;
+};
+
 // Struct to store all the image parameters
 struct ImageParameters{
 	Point eye;
@@ -82,6 +102,10 @@ struct ImageParameters{
 	DepthCue depthCue;
 	bool depthFlag;
 	std::vector<SphereType> spheres;
+	std::vector<Point> vertices;
+	std::vector<Point> verticeTextures;
+	std::vector<Vector> verticeNormals;
+	std::vector<Triangle> triangles;
 	std::vector<LightSource> lights;
 };
 
@@ -93,8 +117,8 @@ struct ImageParameters{
 // Value of Pie
 #define PI 3.14159265
 
-#define JITTERDIST 0.5
+#define JITTERDIST 0.6
 
-#define SHADOWTESTTIMES 300
+#define SHADOWTESTTIMES 100
 
-#define EPI 0.001
+#define EPI 0.06

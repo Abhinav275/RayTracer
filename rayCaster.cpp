@@ -16,6 +16,21 @@ vector<string> getTokens(string line, char delimiter){
 	return tokens;
 }
 
+void debug(string s){
+	cout<<s<<endl;
+	return;
+}
+
+void debug(int n){
+	cout<<n<<endl;
+	return;
+}
+
+void debug(float f){
+	cout<<f<<endl;
+	return;
+}
+
 // Utility function to check given string is a number
 bool checkNumber(string num){
 	if(num[0]=='-' || num[0]=='+') num=num.substr(1, num.size()-1);
@@ -45,7 +60,7 @@ string getFilename(char* inputFile){
 
 // function to write image headers in output ASCII-Image
 // takes as input all the header parameters
-void writeImageHeaders(string file, string imageType, string comments, ImageParameters id, int colorRange){
+void writeImageHeaders(string file, string imageType, string comments, ImageParameters& id, int colorRange){
 	// open output file
 	ofstream myfile(file, std::ofstream::out);
 	
@@ -62,8 +77,86 @@ void writeImageHeaders(string file, string imageType, string comments, ImagePara
 	return;
 }
 
+Texture readTextureFile(string filename){
+
+	// open texture file
+	ifstream inputFile(filename);
+
+	if(inputFile.is_open()){
+		string line;
+
+		getline(inputFile, line);
+		
+
+		vector<string> headers = getTokens(line, ' ');
+
+		if(!checkNumber(headers[1]) || !checkNumber(headers[2]) || !checkNumber(headers[3])) throw -1;
+
+		int width = stoi(headers[1]);
+		int height = stoi(headers[2]);
+		int maxColor = stoi(headers[3]);
+
+		vector<ColorType> result(height*width, {0.0,0.0,0.0});
+
+		int colorListIndex = 0;
+		int colorIndex = 0;
+		int limit = width*height;
+
+		while(colorListIndex<limit && getline(inputFile, line)){
+			vector<string> tokens = getTokens(line, ' ');
+			for(auto color: tokens){
+				switch(colorIndex%3){
+					case 0: {
+						result[colorListIndex].R = (float)stoi(color)/(float)maxColor;
+						colorIndex++;
+						break;
+					}
+					case 1: {
+						result[colorListIndex].G = (float)stoi(color)/(float)maxColor;
+						colorIndex++;
+						break; 
+					}
+					case 2: {
+						result[colorListIndex].B = (float)stoi(color)/(float)maxColor;
+						colorIndex++;
+						colorListIndex++;
+						break;
+					}
+				}
+			}
+		}
+
+
+		inputFile.close();
+
+		vector<vector<ColorType>> textureList(height, vector<ColorType>(width, {0.0,0.0,0.0}));
+
+		colorListIndex = 0;
+
+		for(int i=0;i<height;i++){
+			for(int j=0;j<width;j++){
+				textureList[i][j] = result[colorListIndex];
+				colorListIndex++;
+			}
+		}
+
+		Texture tex;
+		tex.textureList = textureList;
+		tex.width = width;
+		tex.height = height;
+
+		return tex;
+	}
+
+	else throw -1;
+
+	inputFile.close();
+
+	return {};
+}
+
 // Function to write the RGB pixel data to output image
-void writeImageData(string file, ImageParameters id, vector<vector<ColorType>> image){
+void writeImageData(string file, ImageParameters& id, vector<vector<ColorType>> image){
 	// open output file
 	ofstream myfile(file, std::ofstream::out | std::ofstream::app);
 	
@@ -94,7 +187,12 @@ ImageParameters readInput(char* filename){
 		{"bkgcolor", false},
 		{"mtlcolor", false},
 		{"sphere", false},
-		{"light", false}
+		{"v", false},
+		{"f", false},
+		{"vn", false},
+		{"vt", false},
+		{"light", false},
+		{"texture", false}
 	};
 
 	// a map between the switch case and input keywords
@@ -109,11 +207,17 @@ ImageParameters readInput(char* filename){
 		{"sphere", 7},
 		{"light", 8},
 		{"attlight", 9},
-		{"depthcueing", 10}
+		{"depthcueing", 10},
+		{"v", 11},
+		{"f", 12},
+		{"vn", 13},
+		{"vt", 14},
+		{"texture", 15}
 	};
 
 	// an empty material to use for spheres
 	Material mtr;
+	Texture tex;
 
 	ImageParameters id;
 	id.depthFlag = false;
@@ -145,6 +249,7 @@ ImageParameters readInput(char* filename){
 					ImageDimension dim = {width, height};
 					id.dim = dim;
 					headerMap["imsize"] = true;
+					// cout<<headers[tokens[0]]<<endl;
 					break;
 				}
 				case 0:{
@@ -158,6 +263,7 @@ ImageParameters readInput(char* filename){
 					Point eye = {(float)x, (float)y, (float)z};
 					id.eye = eye;
 					headerMap["eye"] = true;
+					// cout<<headers[tokens[0]]<<endl;
 					break;
 				}
 				case 1:{
@@ -171,6 +277,7 @@ ImageParameters readInput(char* filename){
 					Vector viewdir = {(float)dx, (float)dy, (float)dz};
 					id.viewdir = viewdir;
 					headerMap["viewdir"] = true;
+					// cout<<headers[tokens[0]]<<endl;
 					break;
 				}
 				case 2:{
@@ -184,6 +291,7 @@ ImageParameters readInput(char* filename){
 					Vector up = {(float)dx, (float)dy, (float)dz};
 					id.up = up;
 					headerMap["updir"] = true;
+					// cout<<headers[tokens[0]]<<endl;
 					break;
 				}
 				case 3:{
@@ -193,6 +301,7 @@ ImageParameters readInput(char* filename){
 					float angle = stof(tokens[1]);
 					id.hfov = angle;
 					headerMap["hfov"] = true;
+					// cout<<headers[tokens[0]]<<endl;
 					break;
 				}
 				case 5:{
@@ -207,6 +316,7 @@ ImageParameters readInput(char* filename){
 					headerMap["bkgcolor"] = true;
 					ColorType bkcolor = {r,g,b};
 					id.bkgcolor = bkcolor;
+					// cout<<headers[tokens[0]]<<endl;
 					break;
 				}
 				case 6:{
@@ -237,6 +347,7 @@ ImageParameters readInput(char* filename){
 					ColorType mtlcolor = {(float)r, (float)g, (float)b};
 					ColorType speccolor = {(float)r1, (float)g1, (float)b1};
 					mtr = {mtlcolor, speccolor, ka, kd, ks, n};
+					// cout<<headers[tokens[0]]<<endl;
 					break;
 				}
 				case 7:{
@@ -252,7 +363,14 @@ ImageParameters readInput(char* filename){
 					headerMap["sphere"] = true;
 
 					SphereType sphere = {(float)cx, (float)cy, (float)cz, (float)radius, mtr};
+
+					if(headerMap["texture"] == true) {
+						sphere.textureFlag = true;
+						sphere.tex = tex;
+					}
+
 					id.spheres.push_back(sphere);
+					// cout<<headers[tokens[0]]<<endl;
 					break;
 				}
 				case 8:{
@@ -272,6 +390,7 @@ ImageParameters readInput(char* filename){
 					ColorType lightIntensity = {(float)r, (float)g, (float)b};
 					LightSource l = {x,y,z,w,lightIntensity, 0, 0.0, 0.0, 0.0};
 					id.lights.push_back(l);
+					// cout<<headers[tokens[0]]<<endl;
 					break;
 				} case 9:{
 
@@ -292,6 +411,7 @@ ImageParameters readInput(char* filename){
 					ColorType lightIntensity = {(float)r, (float)g, (float)b};
 					LightSource l = {x,y,z,w,lightIntensity, 1, c1, c2 ,c3};
 					id.lights.push_back(l);
+					// cout<<headers[tokens[0]]<<endl;
 					break;
 				} case 10:{
 
@@ -310,6 +430,129 @@ ImageParameters readInput(char* filename){
 					DepthCue depthCue = {r, g, b, amax, amin, dmax, dmin};
 					id.depthCue = depthCue;
 					id.depthFlag = true;
+					// cout<<headers[tokens[0]]<<endl;
+					break;
+				} case 11:{
+
+					// vertex point as input
+					if(tokens.size()!= 4 ||
+						!checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3])) throw -1;
+
+					float x = stof(tokens[1]), y = stof(tokens[2]), z = stof(tokens[3]);
+					headerMap["v"] = true;
+					Point v = {x,y,z};
+					id.vertices.push_back(v);
+					// cout<<headers[tokens[0]]<<endl;
+					break; 
+				} case 12:{
+
+					// take care of faces
+					if(tokens.size()!= 4) throw -1;
+
+					vector<string> subTokens1 = getTokens(tokens[1], '/');
+					vector<string> subTokens2 = getTokens(tokens[2], '/');
+					vector<string> subTokens3 = getTokens(tokens[3], '/');
+
+					int tokenSize = subTokens1.size();
+					if(subTokens2.size()!=tokenSize || subTokens3.size()!=tokenSize) throw -1;
+					
+					if(!checkNumber(subTokens1[0]) || !checkNumber(subTokens2[0]) || !checkNumber(subTokens3[0])) throw -1;
+					int v1 = stoi(subTokens1[0]), v2 = stoi(subTokens2[0]), v3 = stoi(subTokens3[0]);
+					if(id.vertices.size()< max(max(v1, v2), v3) || v1<=0 || v2<=0 || v3<=0 || !headerMap["mtlcolor"]) throw -1;
+					
+					Triangle f;
+
+					f.v1 = id.vertices[v1-1];
+					f.v2 = id.vertices[v2-1];
+					f.v3 = id.vertices[v3-1];
+
+					if(tokenSize==2){
+						if(subTokens1[1]=="" || subTokens2[1]=="" || subTokens3[1]=="" ||
+							!checkNumber(subTokens1[1]) || !checkNumber(subTokens2[1]) || !checkNumber(subTokens3[1])) throw -1;
+						
+						float vt1 = stoi(subTokens1[1]);
+						float vt2 = stoi(subTokens2[1]);
+						float vt3 = stoi(subTokens3[1]);
+						
+						if(id.verticeTextures.size()< max(max(vt1, vt2), vt3) || vt1<=0 || vt2<=0 || vt3<=0 || !headerMap["texture"]) throw -1;
+						
+						f.vt1 = id.verticeTextures[vt1-1];
+						f.vt2 = id.verticeTextures[vt2-1];
+						f.vt3 = id.verticeTextures[vt3-1];
+						f.textureFlag = true;
+						f.tex = tex;
+
+					}
+
+					else if(tokenSize == 3){
+
+						if(subTokens1[2]=="" || subTokens2[2]=="" || subTokens3[2]=="" ||
+							!checkNumber(subTokens1[2]) || !checkNumber(subTokens2[2]) || !checkNumber(subTokens3[2])) throw -1;
+						
+						float vn1 = stoi(subTokens1[2]);
+						float vn2 = stoi(subTokens2[2]);
+						float vn3 = stoi(subTokens3[2]);
+						
+						if(id.verticeNormals.size()< max(max(vn1, vn2), vn3) || vn1<=0 || vn2<=0 || vn3<=0) throw -1;
+
+						f.vn1 = id.verticeNormals[vn1-1];
+						f.vn2 = id.verticeNormals[vn2-1];
+						f.vn3 = id.verticeNormals[vn3-1];
+						f.normalFlag = true;
+
+
+						if(subTokens1[1]!="" || subTokens2[1]!="" || subTokens3[1]!=""){
+							if(subTokens1[1]=="" || subTokens2[1]=="" || subTokens3[1]=="" ||
+							!checkNumber(subTokens1[1]) || !checkNumber(subTokens2[1]) || !checkNumber(subTokens3[1])) throw -1;
+
+							float vt1 = stoi(subTokens1[1]);
+							float vt2 = stoi(subTokens2[1]);
+							float vt3 = stoi(subTokens3[1]);
+							
+							if(id.verticeTextures.size()< max(max(vt1, vt2), vt3) || vt1<=0 || vt2<=0 || vt3<=0 || !headerMap["mtlcolor"]) throw -1;
+							
+							f.vt1 = id.verticeTextures[vt1-1];
+							f.vt2 = id.verticeTextures[vt2-1];
+							f.vt3 = id.verticeTextures[vt3-1];
+							f.textureFlag = true;
+						}
+					}
+
+					f.mtr = mtr;
+
+					headerMap["f"] = true;
+					id.triangles.push_back(f);
+					// cout<<headers[tokens[0]]<<endl;
+					break;
+				} case 13:{
+					// vertex point as input
+					if(tokens.size()!= 4 ||
+						!checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3])) throw -1;
+
+					float x = stof(tokens[1]), y = stof(tokens[2]), z = stof(tokens[3]);
+					headerMap["vn"] = true;
+					Vector v = {x,y,z};
+					id.verticeNormals.push_back(v);
+					// cout<<headers[tokens[0]]<<endl;
+					break; 
+				} case 14:{
+					// vertex point as input
+					if(tokens.size()!= 4 ||
+						!checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3])) throw -1;
+
+					float x = stof(tokens[1]), y = stof(tokens[2]), z = stof(tokens[3]);
+					headerMap["vt"] = true;
+					Point v = {x,y,z};
+					id.verticeTextures.push_back(v);
+					// cout<<headers[tokens[0]]<<endl;
+					break; 
+				} case 15:{
+
+					// texture file name as input
+					if(tokens.size()!= 2) throw -1;
+					tex = readTextureFile(tokens[1]);
+					headerMap["texture"] = true;
+
 					break;
 				}
 				default:
@@ -322,7 +565,9 @@ ImageParameters readInput(char* filename){
 
 		// checking required keywords have been read
 		for(auto& i: headerMap){
-			if(i.second == false && (i.first != "mtlcolor" && i.first != "sphere")) throw -1;
+			if(i.second == false && (i.first != "mtlcolor" && i.first != "sphere" 
+				&& i.first != "vn" && i.first != "vt" && i.first != "texture"
+				&& i.first != "f" && i.first != "v")) throw -1;
 		}
 
 		cout<<"Successfully read the input file."<<endl;
@@ -335,6 +580,24 @@ ImageParameters readInput(char* filename){
 	// return image parameters
 	return id;
 
+}
+
+// Utility function to print Vector
+void printVector(Vector a){
+	cout<<a.dx<<","<<a.dy<<","<<a.dz<<","<<endl;
+	return;
+}
+
+// Utility function to print Point
+void printPoint(Point a){
+	cout<<a.x<<","<<a.y<<","<<a.z<<","<<endl;
+	return;
+}
+
+// Utility function to print a RayType
+void printRay(RayType a){
+	cout<<a.x<<","<<a.y<<","<<a.z<<","<<a.dx<<","<<a.dy<<","<<a.dz<<","<<endl;
+	return;
 }
 
 // Function to initialize the image
@@ -385,6 +648,15 @@ Vector add(Point a, Vector b){
 	return result;
 }
 
+// Function to get a vector by taking difference of a and b 
+Vector getVector(Point a, Point b){
+	Vector result;
+	result.dx = -a.x+b.x;
+	result.dy = -a.y+b.y;
+	result.dz = -a.z+b.z;
+	return result;
+}
+
 ColorType add(ColorType a, ColorType b){
 	ColorType result;
 	result.R = a.R+b.R;
@@ -416,7 +688,7 @@ Vector negateVector(Vector a){
 }
 
 // Function to get cross products of 2 Vectors
-Vector crossProduct(Vector a, Vector b){\
+Vector crossProduct(Vector a, Vector b){
 	try{
 		if(equalVector(normalize(a), normalize(b)) || equalVector(normalize(a), negateVector(normalize(b)) )) throw -2;
 		Vector result;
@@ -428,6 +700,10 @@ Vector crossProduct(Vector a, Vector b){\
 		throw e;
 	}
 
+}
+
+float getPlainConstant(Vector n, Point p){
+	return -(n.dx*p.x + n.dy*p.y + n.dz*p.z);
 }
 
 // dot product of two vectors
@@ -442,17 +718,6 @@ ColorType elementMultiply(ColorType a, ColorType b){
 	return result;
 }
 
-// Utility function to print Vector
-void printVector(Vector a){
-	cout<<a.dx<<","<<a.dy<<","<<a.dz<<","<<endl;
-	return;
-}
-
-// Utility function to print a RayType
-void printRay(RayType a){
-	cout<<a.x<<","<<a.y<<","<<a.z<<","<<a.dx<<","<<a.dy<<","<<a.dz<<","<<endl;
-	return;
-}
 
 // Function to get image plane Vectors ie u, v and w 
 void getImagePlaneVectors(ImageParameters& id){
@@ -534,7 +799,7 @@ Vector getRayPoint(RayType ray, float t){
 }
 
 // Function to get all the rays passing through the viewing window
-vector<vector<RayType>> getRays(ImageParameters id){
+vector<vector<RayType>> getRays(ImageParameters& id){
 	int width = id.dim.width;
 	int height = id.dim.height;
 
@@ -569,6 +834,17 @@ vector<vector<RayType>> getRays(ImageParameters id){
 	return result;
 }
 
+float getTriangleArea(Point p0, Point p1, Point p2){
+	try{
+		Vector e1 = getVector(p0, p1);
+		Vector e2 = getVector(p0, p2);
+
+		return 0.5*(getMagnitude(crossProduct(e1,e2)));
+	} catch (int e){
+		return FLT_MAX;
+	}
+}
+
 // Function to check if a shpere and a ray interset
 float findSphereIntersectionDistance(RayType ray, SphereType sphere){
 	
@@ -594,6 +870,44 @@ float findSphereIntersectionDistance(RayType ray, SphereType sphere){
 	}
 }
 
+vector<float> getBaricenterCoordiantes(Triangle t, Point p){
+	float area = getTriangleArea(t.v1, t.v2, t.v3);
+
+	float beta = getTriangleArea(t.v1, p, t.v3) / area;
+	float gamma = getTriangleArea(t.v1, t.v2, p) / area;
+
+	float alpha = getTriangleArea(p, t.v2, t.v3) / area;
+
+	return {alpha, beta, gamma};
+}
+
+float findTriangleIntersectionDistance(RayType ray, Triangle t){
+	Vector e1 = getVector(t.v1, t.v2);
+	Vector e2 = getVector(t.v1, t.v3);
+	Vector n = crossProduct(e1,e2);
+
+	float plainConstant = getPlainConstant(n, t.v1);
+
+	float denominator = n.dx*ray.dx + n.dy*ray.dy + n.dz*ray.dz;
+
+	if(denominator == 0) return FLT_MAX;
+
+	float numerator = -(n.dx*ray.x + n.dy*ray.y + n.dz*ray.z + plainConstant);
+	float distance = numerator/denominator; 
+
+	if(distance<0.0) return FLT_MAX;
+	
+	Point p = {ray.x + distance*ray.dx, ray.y + distance*ray.dy, ray.z + distance*ray.dz};
+	// printPoint(p);
+
+	vector<float> coordinates = getBaricenterCoordiantes(t, p);
+
+	if(coordinates[0]>1.0 || coordinates[1]>1.0 || coordinates[2]>1.0 || (coordinates[0] + coordinates[1]+ coordinates[2])!=1.0) return FLT_MAX;
+
+	return distance;
+
+}
+
 // function to get the attenuation factor
 float getAttFactor(float c1, float c2, float c3, float distance){
 	return (float)1.0/(c1+ c2*distance + c3*distance*distance);
@@ -609,17 +923,53 @@ float getDepthAlpha(DepthCue depthCue, float distance){
 }
 
 // Function to return the color of the intersection point
-ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection){
-
-	// throw shadow rays from the intersection point
-	SphereType object = id.spheres[objectId];
+ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector pointOfIntersection){
 
 	// initialize color variables
-	ColorType oA = multiplyScalar(object.mtr.materialColor, object.mtr.ka);
-	ColorType oD = {0.0, 0.0, 0.0}, oS = {0.0, 0.0, 0.0}, sigma={0.0, 0.0, 0.0};
+	ColorType oA, oD = {0.0, 0.0, 0.0}, oS = {0.0, 0.0, 0.0}, sigma={0.0, 0.0, 0.0};
+	Vector normal;
+	Material objectMat;
+
+	if(objectType == 0){
+		// throw shadow rays from the intersection point
+		SphereType object = id.spheres[objectId];
+		oA = multiplyScalar(object.mtr.materialColor, object.mtr.ka);
+		normal = add(negateVector({object.cx, object.cy, object.cz}), pointOfIntersection);
+		objectMat = object.mtr;
+		if(object.textureFlag == true){
+			Vector n = normalize(normal);
+			float v = acos(n.dz)/PI;
+			float theta = atan2(n.dy, n.dx);
+			if(theta < 0.0) theta = theta + 2*PI;
+
+			float u = theta/(2*PI);
+
+			int i = (int)(v*(float)object.tex.height);
+			int j = (int)(u*(float)object.tex.width);
+
+			objectMat.materialColor = object.tex.textureList[i][j];
+
+		}
+	}
+
+	else if(objectType == 1){
+		// throw shadow rays from the intersection point
+		Triangle object = id.triangles[objectId];
+		oA = multiplyScalar(object.mtr.materialColor, object.mtr.ka);
+		Vector e1 = getVector(object.v1, object.v2);
+		Vector e2 = getVector(object.v1, object.v3);
+		// cout<<object.normalFlag<<endl;
+		if(object.normalFlag != true) normal = crossProduct(e1,e2);
+		else{
+			vector<float> coordinates = getBaricenterCoordiantes(object, {pointOfIntersection.dx, pointOfIntersection.dy, pointOfIntersection.dz});
+			normal = add(add(multiplyScalar(object.vn1, coordinates[0]), multiplyScalar(object.vn2, coordinates[1])),
+							multiplyScalar(object.vn3, coordinates[2]));
+		}
+		objectMat = object.mtr;
+	}
+
 
 	// ger normal vector from the point of intersection
-	Vector normal = add(negateVector({object.cx, object.cy, object.cz}), pointOfIntersection);
 	normal = normalize(normal);
 
 	// get eye position vector
@@ -695,18 +1045,18 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 		// find H and N.H for spectral factor
 		H = add(L,normalize(V));
 		H = normalize(H);
-
+		
 
 		float nDotL = max((float)0.0, dotProduct(normal, L));
 		float nDotH = dotProduct(normal, H);
-		nDotH = pow(nDotH, object.mtr.n);
+		nDotH = pow(nDotH, objectMat.n);
 		nDotH = max((float)0.0, nDotH);
 
 		// mulitply colors with constants
-		oD = multiplyScalar(object.mtr.materialColor, object.mtr.kd);
+		oD = multiplyScalar(objectMat.materialColor, objectMat.kd);
 		oD = multiplyScalar(oD, nDotL);
 
-		oS = multiplyScalar(object.mtr.specColor, object.mtr.ks); 
+		oS = multiplyScalar(objectMat.specColor, objectMat.ks); 
 		oS = multiplyScalar(oS, nDotH);
 
 		// add the colors element wise
@@ -742,11 +1092,12 @@ ColorType shadeRay(ImageParameters id, int objectId, Vector pointOfIntersection)
 }
 
 // Function to trace ray and find intersections with given image parameters
-ColorType traceRay(RayType ray, ImageParameters id){
+ColorType traceRay(RayType ray, ImageParameters& id){
 	int objectId = -1;
+	int objectType = -1;
 	float minDistance = FLT_MAX;
 	
-	// iterate over all image objects
+	// iterate over all image spheres
 	for(int i=0;i<id.spheres.size();i++){
 
 		// find if the object intersects
@@ -757,12 +1108,27 @@ ColorType traceRay(RayType ray, ImageParameters id){
 		else if(minDistance > dist){
 			minDistance = dist;
 			objectId = i;
+			objectType = 0;
 		}
 	}
 
+	// iterate over all image triangle
+	for(int i=0;i<id.triangles.size();i++){
+
+		// find if the object intersects
+		float dist = findTriangleIntersectionDistance(ray, id.triangles[i]);
+		if(dist == FLT_MAX) continue;
+		
+		// check if the intersection point is closer than previous intersection point
+		else if(minDistance > dist){
+			minDistance = dist;
+			objectId = i;
+			objectType = 1;
+		}
+	}
 	// return the color if there is an intersection point else return background color
-	if(minDistance != FLT_MAX) return shadeRay(id,objectId, getRayPoint(ray, minDistance));
-	else return id.bkgcolor;
+	if(minDistance != FLT_MAX) return shadeRay(id,objectId, objectType, getRayPoint(ray, minDistance));
+	return id.bkgcolor;
 }
 
 // main function to draw the image
@@ -786,6 +1152,12 @@ int main(int argc, char** argv){
 		getImagePlaneVectors(id);
 		getImageViewingWindow(id);
 		vector<vector<RayType>> rays = getRays(id);
+
+
+		// traceRay({0.0, 0.0, 5.0, 0.2, 0.2, -5.0}, id);
+		// traceRay({0.0, 0.0, 5.0, -0.2, -0.2, -5.0}, id);
+		// traceRay({0.0, 0.0, 5.0, 0.2, -0.2, -5.0}, id);
+		// traceRay({0.0, 0.0, 5.0, -0.2, 0.2, -5.0}, id);
 
 		for(int i=0;i<id.dim.height;i++){
 			for(int j=0;j<id.dim.width;j++){
