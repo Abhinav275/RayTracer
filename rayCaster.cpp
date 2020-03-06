@@ -515,6 +515,7 @@ ImageParameters readInput(char* filename){
 							f.vt2 = id.verticeTextures[vt2-1];
 							f.vt3 = id.verticeTextures[vt3-1];
 							f.textureFlag = true;
+							f.tex = tex;
 						}
 					}
 
@@ -537,12 +538,12 @@ ImageParameters readInput(char* filename){
 					break; 
 				} case 14:{
 					// vertex point as input
-					if(tokens.size()!= 4 ||
-						!checkFloat(tokens[1]) || !checkFloat(tokens[2]) || !checkFloat(tokens[3])) throw -1;
+					if(tokens.size()!= 3 ||
+						!checkFloat(tokens[1]) || !checkFloat(tokens[2])) throw -1;
 
-					float x = stof(tokens[1]), y = stof(tokens[2]), z = stof(tokens[3]);
+					float x = stof(tokens[1]), y = stof(tokens[2]);
 					headerMap["vt"] = true;
-					Point v = {x,y,z};
+					Point v = {x,y};
 					id.verticeTextures.push_back(v);
 					// cout<<headers[tokens[0]]<<endl;
 					break; 
@@ -944,8 +945,8 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 
 			float u = theta/(2*PI);
 
-			int i = (int)(v*(float)object.tex.height);
-			int j = (int)(u*(float)object.tex.width);
+			int i = (int)(v*(float)(object.tex.height-1));
+			int j = (int)(u*(float)(object.tex.width-1));
 
 			objectMat.materialColor = object.tex.textureList[i][j];
 
@@ -959,13 +960,25 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 		Vector e1 = getVector(object.v1, object.v2);
 		Vector e2 = getVector(object.v1, object.v3);
 		// cout<<object.normalFlag<<endl;
+		vector<float> coordinates = getBaricenterCoordiantes(object, {pointOfIntersection.dx, pointOfIntersection.dy, pointOfIntersection.dz});
 		if(object.normalFlag != true) normal = crossProduct(e1,e2);
 		else{
-			vector<float> coordinates = getBaricenterCoordiantes(object, {pointOfIntersection.dx, pointOfIntersection.dy, pointOfIntersection.dz});
 			normal = add(add(multiplyScalar(object.vn1, coordinates[0]), multiplyScalar(object.vn2, coordinates[1])),
 							multiplyScalar(object.vn3, coordinates[2]));
 		}
+
 		objectMat = object.mtr;
+
+		if(object.textureFlag == true){
+			float u = coordinates[0]*object.vt1.x + coordinates[1]*object.vt2.x + coordinates[2]*object.vt3.x;
+			float v = coordinates[0]*object.vt1.y + coordinates[1]*object.vt2.y + coordinates[2]*object.vt3.y;
+
+			int i = (int)(v*(float)(object.tex.height));
+			int j = (int)(u*(float)(object.tex.width));
+
+			objectMat.materialColor = object.tex.textureList[i][j];
+
+		}
 	}
 
 
@@ -1067,7 +1080,6 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 			float attFactor = getAttFactor(lightSource.c1, lightSource.c2, lightSource.c3, getMagnitude( add(pointOfIntersection, lightSourceVector))); 
 			c = multiplyScalar(c, attFactor);
 		}
-		
 		// multiple with shadow flag and add
 		sigma = add(sigma, multiplyScalar(c, shadowFlag));
 	}
