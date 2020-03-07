@@ -9,7 +9,7 @@ vector<string> getTokens(string line, char delimiter){
 	
 	// traverse the line stream using delimiter
 	while(getline(lineStream, word, delimiter)){
-		tokens.push_back(word);
+		if(delimiter!=' ' || word!="") tokens.push_back(word);
 	}
 
 	// return tokens vector
@@ -102,22 +102,24 @@ Texture readTextureFile(string filename){
 		int colorIndex = 0;
 		int limit = width*height;
 
+		float mColor = 1.0/(float)maxColor;
+
 		while(colorListIndex<limit && getline(inputFile, line)){
 			vector<string> tokens = getTokens(line, ' ');
 			for(auto color: tokens){
 				switch(colorIndex%3){
 					case 0: {
-						result[colorListIndex].R = (float)stoi(color)/(float)maxColor;
+						result[colorListIndex].R = (float)stoi(color)*mColor;
 						colorIndex++;
 						break;
 					}
 					case 1: {
-						result[colorListIndex].G = (float)stoi(color)/(float)maxColor;
+						result[colorListIndex].G = (float)stoi(color)*mColor;
 						colorIndex++;
 						break; 
 					}
 					case 2: {
-						result[colorListIndex].B = (float)stoi(color)/(float)maxColor;
+						result[colorListIndex].B = (float)stoi(color)*mColor;
 						colorIndex++;
 						colorListIndex++;
 						break;
@@ -231,7 +233,6 @@ ImageParameters readInput(char* filename){
 
 			// get tokens from file separated by space
 			vector<string> tokens = getTokens(line, ' ');
-
 			// ignore is empty line
 			if(tokens.size()==0) continue;
 
@@ -461,6 +462,8 @@ ImageParameters readInput(char* filename){
 					if(id.vertices.size()< max(max(v1, v2), v3) || v1<=0 || v2<=0 || v3<=0 || !headerMap["mtlcolor"]) throw -1;
 					
 					Triangle f;
+					f.textureFlag = false;
+					f.normalFlag = false;
 
 					f.v1 = id.vertices[v1-1];
 					f.v2 = id.vertices[v2-1];
@@ -553,7 +556,7 @@ ImageParameters readInput(char* filename){
 					if(tokens.size()!= 2) throw -1;
 					tex = readTextureFile(tokens[1]);
 					headerMap["texture"] = true;
-
+					// cout<<headers[tokens[0]]<<endl;
 					break;
 				}
 				default:
@@ -795,7 +798,7 @@ RayType makeDirRay(Vector p, Vector direction){
 }
 
 // get intersection point
-Vector getRayPoint(RayType ray, float t){
+Vector getRayPoint(RayType& ray, float t){
 	return {ray.x+t*ray.dx, ray.y+t*ray.dy, ray.z+t*ray.dz};
 }
 
@@ -847,7 +850,7 @@ float getTriangleArea(Point p0, Point p1, Point p2){
 }
 
 // Function to check if a shpere and a ray interset
-float findSphereIntersectionDistance(RayType ray, SphereType sphere){
+float findSphereIntersectionDistance(RayType& ray, SphereType sphere){
 	
 	// find A, B, C of the quadtratic equation
 	float A = 1.0;
@@ -873,16 +876,17 @@ float findSphereIntersectionDistance(RayType ray, SphereType sphere){
 
 vector<float> getBaricenterCoordiantes(Triangle t, Point p){
 	float area = getTriangleArea(t.v1, t.v2, t.v3);
+	area =1.0/area;
 
-	float beta = getTriangleArea(t.v1, p, t.v3) / area;
-	float gamma = getTriangleArea(t.v1, t.v2, p) / area;
+	float beta = getTriangleArea(t.v1, p, t.v3) * area;
+	float gamma = getTriangleArea(t.v1, t.v2, p) * area;
 
-	float alpha = getTriangleArea(p, t.v2, t.v3) / area;
+	float alpha = getTriangleArea(p, t.v2, t.v3) * area;
 
 	return {alpha, beta, gamma};
 }
 
-float findTriangleIntersectionDistance(RayType ray, Triangle t){
+pair<float, vector<float>> findTriangleIntersectionDistance(RayType& ray, Triangle t){
 	Vector e1 = getVector(t.v1, t.v2);
 	Vector e2 = getVector(t.v1, t.v3);
 	Vector n = crossProduct(e1,e2);
@@ -891,21 +895,22 @@ float findTriangleIntersectionDistance(RayType ray, Triangle t){
 
 	float denominator = n.dx*ray.dx + n.dy*ray.dy + n.dz*ray.dz;
 
-	if(denominator == 0) return FLT_MAX;
+	if(denominator == 0) return {FLT_MAX, {}};
 
 	float numerator = -(n.dx*ray.x + n.dy*ray.y + n.dz*ray.z + plainConstant);
 	float distance = numerator/denominator; 
 
-	if(distance<0.0) return FLT_MAX;
+	if(distance<0.0) return {FLT_MAX, {}};
 	
 	Point p = {ray.x + distance*ray.dx, ray.y + distance*ray.dy, ray.z + distance*ray.dz};
 	// printPoint(p);
 
 	vector<float> coordinates = getBaricenterCoordiantes(t, p);
 
-	if(coordinates[0]>1.0 || coordinates[1]>1.0 || coordinates[2]>1.0 || (coordinates[0] + coordinates[1]+ coordinates[2])!=1.0) return FLT_MAX;
+	if(coordinates[0]>1.0 || coordinates[1]>1.0 || coordinates[2]>1.0 || (coordinates[0] + coordinates[1]+ coordinates[2])!=1.0) return {FLT_MAX, {}};
 
-	return distance;
+
+	return {distance, coordinates};
 
 }
 
@@ -924,7 +929,7 @@ float getDepthAlpha(DepthCue depthCue, float distance){
 }
 
 // Function to return the color of the intersection point
-ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector pointOfIntersection){
+ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector pointOfIntersection, RayType& ray){
 
 	// initialize color variables
 	ColorType oA, oD = {0.0, 0.0, 0.0}, oS = {0.0, 0.0, 0.0}, sigma={0.0, 0.0, 0.0};
@@ -960,7 +965,7 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 		Vector e1 = getVector(object.v1, object.v2);
 		Vector e2 = getVector(object.v1, object.v3);
 		// cout<<object.normalFlag<<endl;
-		vector<float> coordinates = getBaricenterCoordiantes(object, {pointOfIntersection.dx, pointOfIntersection.dy, pointOfIntersection.dz});
+		vector<float> coordinates = ray.coordinates;
 		if(object.normalFlag != true) normal = crossProduct(e1,e2);
 		else{
 			normal = add(add(multiplyScalar(object.vn1, coordinates[0]), multiplyScalar(object.vn2, coordinates[1])),
@@ -973,8 +978,8 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 			float u = coordinates[0]*object.vt1.x + coordinates[1]*object.vt2.x + coordinates[2]*object.vt3.x;
 			float v = coordinates[0]*object.vt1.y + coordinates[1]*object.vt2.y + coordinates[2]*object.vt3.y;
 
-			int i = (int)(v*(float)(object.tex.height));
-			int j = (int)(u*(float)(object.tex.width));
+			int i = (int)(v*(float)(object.tex.height-1));
+			int j = (int)(u*(float)(object.tex.width-1));
 
 			objectMat.materialColor = object.tex.textureList[i][j];
 
@@ -1022,13 +1027,28 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 			float minDistance = FLT_MAX;
 			for(int i=0;i<id.spheres.size();i++){
 				
-				if(i == objectId) continue;
+				if(i == objectId && objectType==0) continue;
 
 				float dist = findSphereIntersectionDistance(shadowRay, id.spheres[i]);
 				if(dist == FLT_MAX) continue;
 
 				else if(minDistance > dist && dist > EPI){
 					minDistance = dist;
+				}
+			}
+
+					// iterate over all image triangle
+			for(int i=0;i<id.triangles.size();i++){
+
+				if(i == objectId && objectType == 1) continue;
+
+				// find if the object intersects
+				pair<float, vector<float>> dist = findTriangleIntersectionDistance(shadowRay, id.triangles[i]);
+				if(dist.first == FLT_MAX) continue;
+				
+				// check if the intersection point is closer than previous intersection point
+				else if(minDistance > dist.first && dist.first > EPI){
+					minDistance = dist.first;
 				}
 			}
 
@@ -1080,6 +1100,8 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 			float attFactor = getAttFactor(lightSource.c1, lightSource.c2, lightSource.c3, getMagnitude( add(pointOfIntersection, lightSourceVector))); 
 			c = multiplyScalar(c, attFactor);
 		}
+
+		// shadowFlag = 1.0;
 		// multiple with shadow flag and add
 		sigma = add(sigma, multiplyScalar(c, shadowFlag));
 	}
@@ -1104,7 +1126,7 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 }
 
 // Function to trace ray and find intersections with given image parameters
-ColorType traceRay(RayType ray, ImageParameters& id){
+ColorType traceRay(RayType& ray, ImageParameters& id){
 	int objectId = -1;
 	int objectType = -1;
 	float minDistance = FLT_MAX;
@@ -1128,18 +1150,19 @@ ColorType traceRay(RayType ray, ImageParameters& id){
 	for(int i=0;i<id.triangles.size();i++){
 
 		// find if the object intersects
-		float dist = findTriangleIntersectionDistance(ray, id.triangles[i]);
-		if(dist == FLT_MAX) continue;
+		pair<float, vector<float>> dist = findTriangleIntersectionDistance(ray, id.triangles[i]);
+		if(dist.first == FLT_MAX) continue;
 		
 		// check if the intersection point is closer than previous intersection point
-		else if(minDistance > dist){
-			minDistance = dist;
+		else if(minDistance > dist.first){
+			minDistance = dist.first;
 			objectId = i;
 			objectType = 1;
+			ray.coordinates = dist.second;
 		}
 	}
 	// return the color if there is an intersection point else return background color
-	if(minDistance != FLT_MAX) return shadeRay(id,objectId, objectType, getRayPoint(ray, minDistance));
+	if(minDistance != FLT_MAX) return shadeRay(id,objectId, objectType, getRayPoint(ray, minDistance), ray);
 	return id.bkgcolor;
 }
 

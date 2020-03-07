@@ -34,6 +34,7 @@ struct SphereType{
 struct RayType{
 	float x, y, z;
 	float dx, dy, dz;
+	std::vector<float> coordinates;
 };
 
 // Struct for iamge dimensions
@@ -119,6 +120,6 @@ struct ImageParameters{
 
 #define JITTERDIST 0.6
 
-#define SHADOWTESTTIMES 100
+#define SHADOWTESTTIMES 5
 
 #define EPI 0.06
