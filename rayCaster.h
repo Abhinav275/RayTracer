@@ -112,8 +112,8 @@ struct ImageParameters{
 	std::vector<LightSource> lights;
 };
 
-ColorType traceRay(RayType& ray, ImageParameters& id, int depth);
-ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector pointOfIntersection, RayType& ray, int depth);
+ColorType traceRay(RayType& ray, ImageParameters& id, int depth, stack<float> etaStack);
+ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector pointOfIntersection, RayType& ray, int depth, stack<float> etaStack);
 
 // Constants
 

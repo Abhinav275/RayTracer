@@ -1158,19 +1158,39 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 	if(depth +1 < DEPTHTHRESHOLD){
 		float fr = getFr(ray, normal, objectMat.f0);
 		RayType reflectiveRay = getReflectiveRay(ray, normal, pointOfIntersection);
-		ColorType reflectiveColor = traceRay(reflectiveRay, id, depth+1);
+		ColorType reflectiveColor = traceRay(reflectiveRay, id, depth+1, etaStack);
 		if(reflectiveColor.R >= 0.0 && reflectiveColor.G >=0.0 && reflectiveColor.B >= 0.0){
 			reflectiveColor = multiplyScalar(reflectiveColor, fr);
 			res = add(res, reflectiveColor);
 		}
 
+		RayType refractiveRay;
 		if(objectType == 0){
 			Vector sphereCenter = {id.spheres[objectId].cx, id.spheres[objectId].cy, id.spheres[objectId].cz};
 			Vector diff = add(pointOfIntersection, negateVector(sphereCenter));
 
+			float etaTop = 1.0;
+			if(!etaStack.empty()) etaTop = etaStack.top(); 
 			if(fabs(getMagnitude(diff) - r) < EPI){
-				RayType refractiveRay = getRefractiveRay(ray, normal, pointOfIntersection, objectMat.eta)
+				refractiveRay = getRefractiveRay(ray, normal, pointOfIntersection, objectMat.eta, etaTop);
+				etaStack.pop();
+			} else {
+				refractiveRay = getRefractiveRay(ray, normal, pointOfIntersection, etaTop, objectMat.eta);
+				etaStack.push(objectMat.eta);
 			}
+		} else if(objectType == 1){
+			float plainConstant = getPlainConstant(normal, id.triangles[objectId].v1);
+			float rayDistance = normal.dx*ray.x + normal.dy*ray.y + normal.dz*ray.z + plainConstant;
+			Vector refractiveNormal = normal;
+			if(rayDistance < 0.0) refractiveNormal = negateVector(refractiveNormal);
+			refractiveRay = getRefractiveRay(ray, refractiveNormal, pointOfIntersection, etaStack.top(), objectMat.eta);
+			refractiveRay = getRefractiveRay(refractiveRay, negateVector(refractiveNormal), pointOfIntersection, objectMat.eta, etaStack); 	
+		}
+
+		ColorType refractiveColor = traceRay(refractiveRay, id, depth+1, etaStack);
+		if(refractiveColor.R >= 0.0 && refractiveColor.G >=0.0 && refractiveColor.B >= 0.0){
+			refractiveColor = multiplyScalar(refractiveColor, (1.0 - fr)*(1-objectMat.alpha));
+			res = add(res, refractiveColor);
 		}
 	}
 
@@ -1183,7 +1203,7 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 }
 
 // Function to trace ray and find intersections with given image parameters
-ColorType traceRay(RayType& ray, ImageParameters& id, int depth){
+ColorType traceRay(RayType& ray, ImageParameters& id, int depth, stack<float> etaStack){
 	int objectId = -1;
 	int objectType = -1;
 	float minDistance = FLT_MAX;
@@ -1219,7 +1239,7 @@ ColorType traceRay(RayType& ray, ImageParameters& id, int depth){
 		}
 	}
 	// return the color if there is an intersection point else return background color
-	if(minDistance != FLT_MAX)return shadeRay(id,objectId, objectType, getRayPoint(ray, minDistance), ray, depth);
+	if(minDistance != FLT_MAX)return shadeRay(id,objectId, objectType, getRayPoint(ray, minDistance), ray, depth, etaStack);
 	if(depth == 0) return id.bkgcolor;
 	else return {-1.0, -1.0, -1.0};
 }
@@ -1254,7 +1274,9 @@ int main(int argc, char** argv){
 
 		for(int i=0;i<id.dim.height;i++){
 			for(int j=0;j<id.dim.width;j++){
-				image[i][j] = traceRay(rays[i][j], id, 0);
+				stack etaStack;
+				etaStack.push(1.0);
+				image[i][j] = traceRay(rays[i][j], id, 0, etaStack);
 			}
 		}
 
