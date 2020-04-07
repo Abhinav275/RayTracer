@@ -14,6 +14,7 @@ struct Material{
 	float n;
 	float alpha;
 	float f0;
+	float eta;
 };
 
 struct Texture{
@@ -112,8 +113,8 @@ struct ImageParameters{
 	std::vector<LightSource> lights;
 };
 
-ColorType traceRay(RayType& ray, ImageParameters& id, int depth, stack<float> etaStack);
-ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector pointOfIntersection, RayType& ray, int depth, stack<float> etaStack);
+ColorType traceRay(RayType& ray, ImageParameters& id, int depth, std::stack<std::pair<int, float>> etaStack, bool refractiveRayFlag);
+ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector pointOfIntersection, RayType& ray, int depth, std::stack<std::pair<int, float>> etaStack);
 
 // Constants
 
@@ -127,6 +128,6 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 
 #define SHADOWTESTTIMES 5
 
-#define EPI 0.0006
+#define EPI 0.005
 
-#define DEPTHTHRESHOLD 2
+#define DEPTHTHRESHOLD 5
