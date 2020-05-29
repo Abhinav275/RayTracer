@@ -1017,13 +1017,19 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 		objectMat = object.mtr;
 
 		if(object.textureFlag == true){
-			float u = coordinates[0]*object.vt1.x + coordinates[1]*object.vt2.x + coordinates[2]*object.vt3.x;
-			float v = coordinates[0]*object.vt1.y + coordinates[1]*object.vt2.y + coordinates[2]*object.vt3.y;
+			// debug("Enter");
+			float v = coordinates[0]*object.vt1.x + coordinates[1]*object.vt2.x + coordinates[2]*object.vt3.x;
+			float u = coordinates[0]*object.vt1.y + coordinates[1]*object.vt2.y + coordinates[2]*object.vt3.y;
 
-			int i = (int)(v*(float)(object.tex.height-1));
-			int j = (int)(u*(float)(object.tex.width-1));
+			int i = min(object.tex.height-1, (int)(v*(float)(object.tex.height-1)));
+			int j = min(object.tex.width-1, (int)(u*(float)(object.tex.width-1)));
 
+			// debug(v);
+			// debug(u);
+			// debug(i);
+			// debug(j);
 			objectMat.materialColor = object.tex.textureList[i][j];
+			// debug("Exit");
 
 		}
 	}
@@ -1053,8 +1059,6 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 			etaStack.pop();
 			if(!etaStack.empty()) etaTop = etaStack.top(); 
 			else etaTop = {-1,1.0};
-			debug("--------- Going out circle");
-			inside = true;
 			// debug(objectMat.eta);
 			// debug(etaTop.second);
 			fr = getFr(ray, normal, objectMat.f0);
@@ -1062,16 +1066,15 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 			Vector incidence = {-ray.dx, -ray.dy, -ray.dz};
 			incidence = normalize(incidence);
 			float incidenceAngle = acos(dotProduct(normal, incidence))* 180.0 / PI;
-			refractiveRay = getRefractiveRay(ray, normal, pointOfIntersection, 1.5, 1.0);
+			refractiveRay = getRefractiveRay(ray, normal, pointOfIntersection, objectMat.eta, etaTop.second);
 			if(objectMat.eta > etaTop.second) criticalAngle = asin(etaTop.second / objectMat.eta)* 180.0 / PI;
 
-			debug(incidenceAngle);
 			if(incidenceAngle >= criticalAngle && incidenceAngle <= 90.0) internalReflection = true;
 			else etaStack.pop();
 
 
 		} else {
-			refractiveRay = getRefractiveRay(ray, normal, pointOfIntersection, 1.0, 1.5);
+			refractiveRay = getRefractiveRay(ray, normal, pointOfIntersection, etaTop.second, objectMat.eta);
 			etaStack.push({objectId, objectMat.eta});
 		}
 	} else if(objectType == 1){
@@ -1083,6 +1086,7 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 		if(!etaStack.empty()) etaTop = etaStack.top();
 		refractiveRay = getRefractiveRay(ray, refractiveNormal, pointOfIntersection, etaTop.second, objectMat.eta);
 		refractiveRay = getRefractiveRay(refractiveRay, negateVector(refractiveNormal), pointOfIntersection, objectMat.eta, etaTop.second); 	
+		// internalReflection = true;
 	}
 
 
@@ -1094,12 +1098,12 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 			res = add(res, refractiveColor);
 		}
 
-		// RayType reflectiveRay = getReflectiveRay(ray, normal, pointOfIntersection);
-		// ColorType reflectiveColor = traceRay(reflectiveRay, id, depth+1, etaStack, false);
-		// if(reflectiveColor.R >= 0.0 && reflectiveColor.G >=0.0 && reflectiveColor.B >= 0.0){
-		// 	reflectiveColor = multiplyScalar(reflectiveColor, fr);
-		// 	res = add(res, reflectiveColor);
-		// }
+		RayType reflectiveRay = getReflectiveRay(ray, normal, pointOfIntersection);
+		ColorType reflectiveColor = traceRay(reflectiveRay, id, depth+1, etaStack, false);
+		if(reflectiveColor.R >= 0.0 && reflectiveColor.G >=0.0 && reflectiveColor.B >= 0.0){
+			reflectiveColor = multiplyScalar(reflectiveColor, fr);
+			res = add(res, reflectiveColor);
+		}
 		
 	}
 	
@@ -1115,6 +1119,7 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 
 		// forming multiple shadow rays for making soft shadows
 		for(int x = 0; x < SHADOWTESTTIMES; x++){
+			Material shadownMat;
 
 			// find jitter and add it to ray input
 			float jitter_x = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
@@ -1140,6 +1145,7 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 
 				else if(minDistance > dist && dist > EPI){
 					minDistance = dist;
+					shadownMat = id.spheres[i].mtr;
 				}
 			}
 
@@ -1155,13 +1161,14 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 				// check if the intersection point is closer than previous intersection point
 				else if(minDistance > dist.first && dist.first > EPI){
 					minDistance = dist.first;
+					shadownMat = id.triangles[i].mtr;
 				}
 			}
 
 			//  calculate shadow flag
-			if(lightSource.w == 0.0 && minDistance!=FLT_MAX) shadowFlag += 0.0;
+			if(lightSource.w == 0.0 && minDistance!=FLT_MAX) shadowFlag += (1.0 - shadownMat.alpha);
 			else if(lightSource.w==1.0 && minDistance!=FLT_MAX){
-				if(minDistance < getMagnitude( add(pointOfIntersection, lightSourceVector))) shadowFlag += 0.0;
+				if(minDistance < getMagnitude( add(pointOfIntersection, lightSourceVector))) shadowFlag += (1.0 - shadownMat.alpha);
 				else shadowFlag += 1.0;
 			}
 			else if(minDistance==FLT_MAX) shadowFlag += 1.0;
@@ -1185,7 +1192,6 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 		H = add(L,normalize(V));
 		H = normalize(H);
 		
-
 		float nDotL = max((float)0.0, dotProduct(normal, L));
 		float nDotH = dotProduct(normal, H);
 		nDotH = max((float)0.0, nDotH);
@@ -1214,10 +1220,6 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 
 	// add the sigma to ambia light
 	res = add(res, sigma);
-	if(inside){
-		debug("Inside circle");
-		printPoint({res.R, res.G, res.B});
-	}
 
 	// apply depth cueing
 	if(id.depthFlag == true){
@@ -1306,8 +1308,9 @@ int main(int argc, char** argv){
 		getImageViewingWindow(id);
 		vector<vector<RayType>> rays = getRays(id);
 
+		Vector eyePosition = {id.eye.x, id.eye.y, id.eye.z};
+		RayType ray = makeDirRay(eyePosition, {3,0,-4});
 
-		// traceRay({0.0, 0.0, 5.0, 0.2, 0.2, -5.0}, id);
 		// traceRay({0.0, 0.0, 5.0, -0.2, -0.2, -5.0}, id);
 		// traceRay({0.0, 0.0, 5.0, 0.2, -0.2, -5.0}, id);
 		// traceRay({0.0, 0.0, 5.0, -0.2, 0.2, -5.0}, id);

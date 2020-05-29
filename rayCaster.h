@@ -128,6 +128,6 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 
 #define SHADOWTESTTIMES 5
 
-#define EPI 0.005
+#define EPI 0.00005
 
-#define DEPTHTHRESHOLD 5
+#define DEPTHTHRESHOLD 3
