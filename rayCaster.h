@@ -12,6 +12,9 @@ struct Material{
 	ColorType materialColor, specColor;
 	float ka, kd, ks;
 	float n;
+	float alpha;
+	float f0;
+	float eta;
 };
 
 struct Texture{
@@ -110,16 +113,21 @@ struct ImageParameters{
 	std::vector<LightSource> lights;
 };
 
+ColorType traceRay(RayType& ray, ImageParameters& id, int depth, std::stack<std::pair<int, float>> etaStack, bool refractiveRayFlag);
+ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector pointOfIntersection, RayType& ray, int depth, std::stack<std::pair<int, float>> etaStack);
+
 // Constants
 
 // Distance of viewing window from the eye
-#define D 5
+#define D 200
 
 // Value of Pie
 #define PI 3.14159265
 
-#define JITTERDIST 0.6
+#define JITTERDIST 0.0006
 
 #define SHADOWTESTTIMES 5
 
-#define EPI 0.06
+#define EPI 0.00005
+
+#define DEPTHTHRESHOLD 3
