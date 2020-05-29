@@ -42,25 +42,6 @@ string getFilename(char* inputFile){
 	else return tokens[0]+".ppm";
 }
 
-// function to write image headers in output ASCII-Image
-// takes as input all the header parameters
-void writeImageHeaders(string file, string imageType, string comments, ImageParameters& id, int colorRange){
-	// open output file
-	ofstream myfile(file, std::ofstream::out);
-	
-	// write headers to the output file
-	if(myfile.is_open()){
-		myfile<<imageType<<"\n";
-		myfile<<comments<<"\n";
-		myfile<<id.dim.width<<" "<<id.dim.height<<"\n";
-		myfile<<colorRange<<"\n";
-	}
-
-	// close output file
-	myfile.close();
-	return;
-}
-
 // Utility function to debug
 void debug(string s){
 	cout<<s<<endl;

@@ -3,7 +3,12 @@
 #include <math.h>
 #include <unordered_map>
 #include <fstream>
+#include "models.h"
 #include "utils.h"
+#include "file_utils.h"
+
+#ifndef RAYCASTER_H
+#define RAYCASTER_H
 
 ColorType traceRay(RayType& ray, ImageParameters& id, int depth, std::stack<std::pair<int, float>> etaStack, bool refractiveRayFlag);
 ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector pointOfIntersection, RayType& ray, int depth, std::stack<std::pair<int, float>> etaStack);
@@ -23,3 +28,5 @@ ColorType shadeRay(ImageParameters& id, int objectId, int objectType, Vector poi
 #define EPI 0.00005
 
 #define DEPTHTHRESHOLD 3
+
+#endif

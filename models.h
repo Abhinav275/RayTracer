@@ -3,6 +3,9 @@
 #include <stack>
 #include <cfloat>
 
+#ifndef MODELS_H
+#define MODELS_H
+
 // Struct for RGB colors
 struct ColorType{
 	float R;
@@ -115,3 +118,5 @@ struct ImageParameters{
 	std::vector<Triangle> triangles;
 	std::vector<LightSource> lights;
 };
+
+#endif
