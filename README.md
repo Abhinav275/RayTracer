@@ -1,6 +1,15 @@
 # Implementation of Ray Tracing for image rendering in C++
 This project implements an image rendering pipeline in C++ using ray tracing.
 
+## Features Implemented
+ - [X] Blinn-Phong illumination model
+ - [X] Attenuation
+ - [X] Depth Cueing
+ - [X] Soft Shadows
+ - [X] Texture Rendering
+ - [X] Reflection
+ - [X] Transparency
+
 ## Implementation details
 
 ### Code Compilation and running
