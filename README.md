@@ -1,4 +1,4 @@
-# Implementation of Ray Tracking for image rendering in C++
+# Implementation of Ray Tracing for image rendering in C++
 This project implements an image rendering pipeline in C++ using ray tracing.
 
 ## Implementation details
